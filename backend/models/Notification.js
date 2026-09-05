@@ -1,24 +1,46 @@
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { 
-    type: String, 
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+
+  type: {
+    type: String,
     enum: [
-      'NORMAL_BOOKING_REQUEST', 
-      'EMERGENCY_BOOKING_REQUEST', 
-      'BOOKING_ACCEPTED', 
-      'BOOKING_REJECTED', 
-      'SERVICE_COMPLETED', 
+      'BOOKING_REQUEST',
+      'EMERGENCY_BOOKING_REQUEST',
+      'BOOKING_ACCEPTED',
+      'BOOKING_REJECTED',
+      'WORKER_ON_THE_WAY',
+      'WORKER_ARRIVED',
+      'SERVICE_STARTED',
+      'SERVICE_COMPLETED',
       'BOOKING_CANCELLED',
       'SYSTEM'
-    ], 
-    required: true 
+    ],
+    required: true
   },
-  message: { type: String, required: true },
-  bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'JobRequest' },
-  isRead: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+
+  message: {
+    type: String,
+    required: true
+  },
+
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'JobRequest'
+  },
+
+  isRead: {
+    type: Boolean,
+    default: false
+  }
+
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);
