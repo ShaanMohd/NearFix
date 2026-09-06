@@ -15,8 +15,7 @@ const ComplaintSchema = new mongoose.Schema({
 
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'JobRequest',
-    required: true
+    ref: 'JobRequest'
   },
 
   category: {

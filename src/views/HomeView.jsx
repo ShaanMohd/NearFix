@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import WorkerCard from '../components/WorkerCard';
 import MapComponent from '../components/MapComponent';
-import { Map as MapIcon, List, Search, ShieldCheck, Loader2, Wrench, Zap, Paintbrush, Hammer, Sparkles } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Map as MapIcon, List, Search, ShieldCheck, Loader2, Wrench, Zap, Paintbrush, Hammer, Sparkles, GraduationCap, Camera, Scissors, Laptop, Dumbbell, Palette } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CATEGORIES = [
   { id: 'All', label: 'All Services', icon: Sparkles },
   { id: 'Plumber', label: 'Plumbing', icon: Wrench },
   { id: 'Electrician', label: 'Electrical', icon: Zap },
   { id: 'Painter', label: 'Painting', icon: Paintbrush },
-  { id: 'Carpenter', label: 'Carpentry', icon: Hammer }
+  { id: 'Carpenter', label: 'Carpentry', icon: Hammer },
+  { id: 'Tutor', label: 'Tutoring', icon: GraduationCap },
+  { id: 'Photographer', label: 'Photography', icon: Camera },
+  { id: 'Tailor', label: 'Tailoring', icon: Scissors },
+  { id: 'Laptop Repair', label: 'Tech Repair', icon: Laptop },
+  { id: 'Fitness Trainer', label: 'Fitness', icon: Dumbbell },
+  { id: 'Graphic Designer', label: 'Design', icon: Palette }
 ];
 
 export default function HomeView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const searchParam = params.get('search');
+    const categoryParam = params.get('category');
+    if (searchParam) setSearchQuery(searchParam);
+    if (categoryParam) setSelectedCategory(categoryParam);
+  }, [location.search]);
 
   useEffect(() => {
     fetch('http://localhost:5000/api/users/workers')

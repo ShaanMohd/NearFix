@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const JobRequestSchema = new mongoose.Schema({
 
   customerId: {
@@ -20,7 +22,7 @@ const JobRequestSchema = new mongoose.Schema({
   serviceMode: {
     type: String,
     enum: ['Home Service', 'Visit Provider'],
-    required: true
+    default: 'Home Service'
   },
 
   description: {
@@ -46,8 +48,7 @@ const JobRequestSchema = new mongoose.Schema({
   customerLocation: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ['Point']
     },
     coordinates: {
       type: [Number]
@@ -101,3 +102,5 @@ const JobRequestSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+module.exports = mongoose.model('JobRequest', JobRequestSchema);

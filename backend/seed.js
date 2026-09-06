@@ -399,6 +399,7 @@ async function seedData() {
   const c1 = new Complaint({
     customerId: customer2._id,
     workerId: suspendedWorker._id,
+    bookingId: job1._id,
     category: 'Overcharging',
     description: 'Worker quoted ₹350 initial inspection fee but demanded ₹1500 after opening the appliance panel without doing repair work.',
     status: 'Open'
@@ -407,6 +408,7 @@ async function seedData() {
   const c2 = new Complaint({
     customerId: customer1._id,
     workerId: worker2._id,
+    bookingId: job2._id,
     category: 'Worker did not arrive',
     description: 'Confirmed appointment for 10:00 AM on Monday but did not turn up and phone was unreachable.',
     status: 'Under Review',

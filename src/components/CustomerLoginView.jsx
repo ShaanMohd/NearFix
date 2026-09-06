@@ -77,10 +77,10 @@ export default function CustomerLoginView() {
             <UserSearch size={32} color="var(--accent-primary)" />
           </div>
           <h2 className="heading-gradient" style={{ fontSize: '2rem', marginBottom: '8px' }}>
-            {isForgotPassword ? 'Reset Password' : isRegistering ? 'Create User Account' : 'User Login'}
+            {isForgotPassword ? 'Reset Password' : isRegistering ? 'Create Customer Account' : 'Customer Sign In'}
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
-            {isForgotPassword ? 'Enter your email to receive a password reset link.' : isRegistering ? 'Join to find the best local talent.' : 'Sign in to find the best local talent to get your job done.'}
+            {isForgotPassword ? 'Enter your email to receive a password reset link.' : isRegistering ? 'Join NearFix to find and book verified professionals near you.' : 'Sign in to connect with trusted local service professionals.'}
           </p>
         </div>
 
@@ -183,7 +183,7 @@ export default function CustomerLoginView() {
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '12px', width: '100%' }}>
-                {loading ? <Loader2 size={20} className="animate-spin" /> : (isRegistering ? 'Create Account' : 'Sign In as User')}
+                {loading ? <Loader2 size={20} className="animate-spin" /> : (isRegistering ? 'Create Account' : 'Sign In')}
               </button>
             </form>
 
@@ -220,7 +220,7 @@ export default function CustomerLoginView() {
             </div>
 
             <div style={{ marginTop: '32px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              {isRegistering ? "Already have a profile? " : "Don't have a user profile? "}
+              {isRegistering ? "Already have an account? " : "Don't have an account? "}
               <button 
                 onClick={() => { setIsRegistering(!isRegistering); setError(null); }}
                 style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: '500', cursor: 'pointer', fontSize: '0.9rem' }}

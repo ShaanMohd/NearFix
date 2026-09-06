@@ -92,10 +92,10 @@ export default function WorkerLoginView() {
             {isRegistering ? <UserPlus size={32} color="var(--success)" /> : <Briefcase size={32} color="var(--success)" />}
           </div>
           <h2 className="heading-gradient" style={{ fontSize: '2rem', marginBottom: '8px' }}>
-            {isForgotPassword ? 'Reset Password' : isRegistering ? 'Worker Registration' : 'Worker Login'}
+            {isForgotPassword ? 'Reset Password' : isRegistering ? 'Service Provider Registration' : 'Service Provider Login'}
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
-            {isForgotPassword ? 'Enter your email to receive a password reset link.' : isRegistering ? 'Create your profile to start finding local jobs.' : 'Access your dashboard, chat with clients, and manage your jobs.'}
+            {isForgotPassword ? 'Enter your email to receive a password reset link.' : isRegistering ? 'Build your profile, showcase your work and receive local customer requests.' : 'Access your provider dashboard, manage bookings, and communicate with clients.'}
           </p>
         </div>
 
@@ -204,7 +204,7 @@ export default function WorkerLoginView() {
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '12px', width: '100%', background: 'var(--success)', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}>
-                {loading ? <Loader2 size={20} className="animate-spin" /> : (isRegistering ? 'Register as Worker' : 'Sign In as Worker')}
+                {loading ? <Loader2 size={20} className="animate-spin" /> : (isRegistering ? 'Register as Service Provider' : 'Sign In as Service Provider')}
               </button>
             </form>
 
@@ -244,7 +244,7 @@ export default function WorkerLoginView() {
               {isRegistering ? (
                 <>Already have an account? <span onClick={() => { setIsRegistering(false); setError(null); }} style={{ color: 'var(--success)', cursor: 'pointer', fontWeight: '500' }}>Login</span></>
               ) : (
-                <>Want to offer your skills? <span onClick={() => { setIsRegistering(true); setError(null); }} style={{ color: 'var(--success)', cursor: 'pointer', fontWeight: '500' }}>Create worker profile</span></>
+                <>Want to offer your skills? <span onClick={() => { setIsRegistering(true); setError(null); }} style={{ color: 'var(--success)', cursor: 'pointer', fontWeight: '500' }}>Become a Service Provider</span></>
               )}
             </div>
           </>

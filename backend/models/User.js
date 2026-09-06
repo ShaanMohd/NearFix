@@ -41,12 +41,10 @@ const UserSchema = new Schema({
   location: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ['Point']
     },
     coordinates: {
-      type: [Number],
-      default: undefined
+      type: [Number]
     }
   },
 
@@ -93,12 +91,10 @@ const UserSchema = new Schema({
   businessLocation: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ['Point']
     },
     coordinates: {
-      type: [Number],
-      default: undefined
+      type: [Number]
     }
   },
 
@@ -169,9 +165,8 @@ const UserSchema = new Schema({
   },
 
   serviceRadius: {
-    type: Number,
-    default: 10,
-    min: 0
+    type: String,
+    default: '15 km'
   },
 
   availabilityHours: {
@@ -212,8 +207,17 @@ const UserSchema = new Schema({
   timestamps: true
 });
 
-UserSchema.index({ location: '2dsphere' });
-UserSchema.index({ businessLocation: '2dsphere' });
+UserSchema.index({ location: '2dsphere' }, { sparse: true });
+UserSchema.index({ businessLocation: '2dsphere' }, { sparse: true });
+
+UserSchema.pre('save', function () {
+  if (this.businessLocation && (!this.businessLocation.coordinates || this.businessLocation.coordinates.length !== 2)) {
+    this.businessLocation = undefined;
+  }
+  if (this.location && (!this.location.coordinates || this.location.coordinates.length !== 2)) {
+    this.location = undefined;
+  }
+});
 
 UserSchema.pre('init', function (doc) {
   if (doc && typeof doc.location === 'string') {
