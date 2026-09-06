@@ -220,8 +220,8 @@ export default function Workers() {
           <p style={{ fontSize: '0.9rem' }}>Try clearing or adjusting search filters.</p>
         </div>
       ) : (
-        <div className="glass-panel" style={{ borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--border-glass)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+        <div className="glass-panel table-responsive" style={{ borderRadius: '20px', overflowX: 'auto', border: '1px solid var(--border-glass)' }}>
+          <table style={{ minWidth: '650px', width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
             <thead>
               <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-glass)', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase' }}>
                 <th style={{ padding: '16px 20px' }}>Worker</th>

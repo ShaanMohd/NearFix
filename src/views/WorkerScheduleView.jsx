@@ -126,12 +126,12 @@ export default function WorkerScheduleView() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* General Operating Settings Form */}
-          <div className="glass-panel" style={{ padding: '28px', borderRadius: '20px' }}>
+          <div className="glass-panel" style={{ padding: 'clamp(18px, 3.5vw, 28px)', borderRadius: '20px' }}>
             <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Clock size={22} color="var(--accent-primary)" /> Daily Availability & Radius
             </h2>
 
-            <form onSubmit={handleSaveSettings} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '18px' }}>
+            <form onSubmit={handleSaveSettings} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '18px' }}>
               <div>
                 <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Availability Status</label>
                 <button
@@ -193,8 +193,8 @@ export default function WorkerScheduleView() {
             </form>
           </div>
 
-          {/* Unavailable / Busy Dates Block */}
-          <div className="glass-panel" style={{ padding: '28px', borderRadius: '20px' }}>
+          {/* Unavailable Dates / Busy Slots Section */}
+          <div className="glass-panel" style={{ padding: 'clamp(18px, 3.5vw, 28px)', borderRadius: '20px' }}>
             <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Calendar size={22} color="var(--accent-primary)" /> Mark Unavailable / Leave Dates
             </h2>

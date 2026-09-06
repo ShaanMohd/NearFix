@@ -201,7 +201,25 @@ const UserSchema = new Schema({
   busySlots: [{
     date: String,
     time: String
-  }]
+  }],
+
+  aadhaarVerification: {
+    verified: {
+      type: Boolean,
+      default: false
+    },
+    aadhaarLast4: {
+      type: String,
+      default: ''
+    },
+    aadhaarHash: {
+      type: String,
+      default: ''
+    },
+    verifiedAt: {
+      type: Date
+    }
+  }
 
 }, {
   timestamps: true

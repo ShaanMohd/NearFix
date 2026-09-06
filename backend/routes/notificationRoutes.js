@@ -11,7 +11,7 @@ router.get('/', auth, async (req, res) => {
       .populate({
         path: 'bookingId',
         populate: [
-          { path: 'customerId', select: 'name avatar phone location' },
+          { path: 'customerId', select: 'name avatar phone location address' },
           { path: 'workerId', select: 'name avatar phone title' }
         ]
       })

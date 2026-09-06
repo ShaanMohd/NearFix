@@ -133,6 +133,15 @@ export default function LandingPage() {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalPurpose, setAuthModalPurpose] = useState('general'); // 'general' | 'location_map'
+
+  const getIsLoggedIn = () => {
+    const token = localStorage.getItem('token');
+    return Boolean(token && token !== 'null' && token !== 'undefined');
+  };
+
+  const userRole = localStorage.getItem('userRole') || 'customer';
+  const isLoggedIn = getIsLoggedIn();
 
   // Handle Search Submission
   const handleSearchSubmit = (e) => {
@@ -161,20 +170,47 @@ export default function LandingPage() {
         setLocationStatus(`Location detected (${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°)`);
         // Store for map view
         localStorage.setItem('userGeoCoords', JSON.stringify({ lat: latitude, lng: longitude }));
-        setTimeout(() => {
-          navigate('/app/map');
-        }, 800);
+
+        if (getIsLoggedIn()) {
+          // If already signed in, take to current redirection page
+          setTimeout(() => {
+            navigate('/app/map');
+          }, 800);
+        } else {
+          // If not signed in, ask for sign in or sign up
+          setTimeout(() => {
+            setAuthModalPurpose('location_map');
+            setShowAuthModal(true);
+          }, 500);
+        }
       },
       (err) => {
         setDetectingLocation(false);
         console.warn('Geolocation warning:', err);
         setLocationStatus('Using Kozhikode central region as default.');
-        setTimeout(() => {
-          navigate('/app/map');
-        }, 1000);
+
+        if (getIsLoggedIn()) {
+          setTimeout(() => {
+            navigate('/app/map');
+          }, 1000);
+        } else {
+          setTimeout(() => {
+            setAuthModalPurpose('location_map');
+            setShowAuthModal(true);
+          }, 500);
+        }
       },
       { timeout: 7000 }
     );
+  };
+
+  const handleMapRadarClick = () => {
+    if (getIsLoggedIn()) {
+      navigate('/app/map');
+    } else {
+      setAuthModalPurpose('location_map');
+      setShowAuthModal(true);
+    }
   };
 
   const handleCategoryClick = (categoryName) => {
@@ -232,7 +268,7 @@ export default function LandingPage() {
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav style={{ display: 'none', alignItems: 'center', gap: '32px' }} className="desktop-header-nav">
+          <nav style={{ alignItems: 'center', gap: '32px' }} className="desktop-header-nav">
             <a 
               href="#services" 
               style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.95rem', transition: 'color 0.2s' }}
@@ -252,39 +288,81 @@ export default function LandingPage() {
           </nav>
 
           {/* Desktop Right Action Buttons */}
-          <div style={{ display: 'none', alignItems: 'center', gap: '14px' }} className="desktop-header-actions">
-            <button
-              onClick={() => setShowAuthModal(true)}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--border-glass)',
-                color: 'var(--text-primary)',
-                padding: '9px 18px',
-                borderRadius: '10px',
-                fontWeight: '600',
-                fontSize: '0.92rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-tertiary)';
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'var(--border-glass)';
-              }}
-            >
-              Sign In
-            </button>
+          <div style={{ alignItems: 'center', gap: '14px' }} className="desktop-header-actions">
+            {isLoggedIn ? (
+              <>
+                <button
+                  onClick={() => navigate(userRole === 'worker' ? '/app/workerHome' : '/app')}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border-glass)',
+                    color: 'var(--text-primary)',
+                    padding: '9px 18px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '0.92rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = 'var(--border-glass)';
+                  }}
+                >
+                  Dashboard
+                </button>
 
-            <button
-              onClick={() => navigate('/login/customer')}
-              className="btn-primary"
-              style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '0.92rem' }}
-            >
-              Get Started <ArrowRight size={16} />
-            </button>
+                <button
+                  onClick={() => navigate('/app/map')}
+                  className="btn-primary"
+                  style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '0.92rem' }}
+                >
+                  Map View <ArrowRight size={16} />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setAuthModalPurpose('general');
+                    setShowAuthModal(true);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border-glass)',
+                    color: 'var(--text-primary)',
+                    padding: '9px 18px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '0.92rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = 'var(--border-glass)';
+                  }}
+                >
+                  Sign In
+                </button>
+
+                <button
+                  onClick={() => navigate('/login/customer')}
+                  className="btn-primary"
+                  style={{ padding: '9px 20px', borderRadius: '10px', fontSize: '0.92rem' }}
+                >
+                  Get Started <ArrowRight size={16} />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile Hamburger Menu Toggle */}
@@ -332,34 +410,70 @@ export default function LandingPage() {
             </a>
             <hr style={{ border: 'none', borderTop: '1px solid var(--border-glass)' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setShowAuthModal(true);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-glass)',
-                  borderRadius: '10px',
-                  fontWeight: '600',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer'
-                }}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate('/login/customer');
-                }}
-                className="btn-primary"
-                style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
-              >
-                Get Started
-              </button>
+              {isLoggedIn ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate(userRole === 'worker' ? '/app/workerHome' : '/app');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-glass)',
+                      borderRadius: '10px',
+                      fontWeight: '600',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/app/map');
+                    }}
+                    className="btn-primary"
+                    style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
+                  >
+                    Map View
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setAuthModalPurpose('general');
+                      setShowAuthModal(true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-glass)',
+                      borderRadius: '10px',
+                      fontWeight: '600',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/login/customer');
+                    }}
+                    className="btn-primary"
+                    style={{ width: '100%', padding: '12px', borderRadius: '10px' }}
+                  >
+                    Get Started
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -377,8 +491,8 @@ export default function LandingPage() {
           maxWidth: '1240px',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '48px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+          gap: '40px',
           alignItems: 'center'
         }}>
           {/* Left Column: Heading, Subheading & Controls */}
@@ -400,7 +514,7 @@ export default function LandingPage() {
             </div>
 
             <h1 style={{
-              fontSize: 'clamp(2.3rem, 4vw, 3.4rem)',
+              fontSize: 'clamp(2rem, 4vw, 3.4rem)',
               fontWeight: '800',
               lineHeight: '1.15',
               letterSpacing: '-1px',
@@ -411,10 +525,10 @@ export default function LandingPage() {
             </h1>
 
             <p style={{
-              fontSize: '1.12rem',
+              fontSize: 'clamp(1rem, 2vw, 1.12rem)',
               color: 'var(--text-secondary)',
               lineHeight: '1.6',
-              marginBottom: '32px',
+              marginBottom: '28px',
               maxWidth: '540px'
             }}>
               Discover verified professionals based on your location, availability and the service you need.
@@ -428,23 +542,24 @@ export default function LandingPage() {
               boxShadow: 'var(--shadow-lg)',
               border: '1px solid var(--border-glass)',
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
               gap: '8px',
               maxWidth: '560px',
               marginBottom: '16px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: '12px', gap: '10px' }}>
-                <Search size={20} color="var(--text-muted)" />
+              <div style={{ display: 'flex', alignItems: 'center', flex: '1 1 220px', paddingLeft: '8px', gap: '10px', minHeight: '42px' }}>
+                <Search size={20} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                 <input
                   type="text"
-                  placeholder="Search electrician, plumber, tutor, repair..."
+                  placeholder="Search electrician, plumber, tutor..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
                     border: 'none',
                     outline: 'none',
                     width: '100%',
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
                     color: 'var(--text-primary)',
                     background: 'transparent'
                   }}
@@ -453,7 +568,7 @@ export default function LandingPage() {
               <button
                 type="submit"
                 className="btn-primary"
-                style={{ padding: '12px 24px', borderRadius: '12px', whiteSpace: 'nowrap' }}
+                style={{ padding: '10px 22px', borderRadius: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }}
               >
                 Search
               </button>
@@ -586,7 +701,7 @@ export default function LandingPage() {
 
               {/* Map Preview Canvas Graphic */}
               <div 
-                onClick={() => navigate('/app/map')}
+                onClick={handleMapRadarClick}
                 style={{
                   height: '240px',
                   borderRadius: '16px',
@@ -803,8 +918,8 @@ export default function LandingPage() {
         {/* 8 Diverse Service Categories Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '24px'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
+          gap: '20px'
         }}>
           {POPULAR_SERVICES.map((service) => {
             const Icon = service.icon;
@@ -967,8 +1082,8 @@ export default function LandingPage() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '28px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
+            gap: '20px'
           }}>
             {HOW_IT_WORKS_STEPS.map((step, idx) => (
               <div
@@ -1157,7 +1272,7 @@ export default function LandingPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.88rem' }}>
               <a href="#services" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Explore Services</a>
               <a href="#how-it-works" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>How NearFix Works</a>
-              <span onClick={() => navigate('/app')} style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}>Browse Nearby Map</span>
+              <span onClick={handleMapRadarClick} style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}>Browse Nearby Map</span>
               <span onClick={() => navigate('/login/customer')} style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}>Find a Professional</span>
             </div>
           </div>
@@ -1244,9 +1359,12 @@ export default function LandingPage() {
         }}>
           <div className="glass-panel" style={{
             background: '#ffffff',
-            maxWidth: '460px',
+            maxWidth: 'min(94vw, 460px)',
             width: '100%',
-            padding: '32px',
+            maxHeight: '90vh',
+            maxHeight: '90dvh',
+            overflowY: 'auto',
+            padding: 'clamp(20px, 5vw, 32px)',
             borderRadius: '24px',
             boxShadow: 'var(--shadow-lg)',
             position: 'relative'
@@ -1266,104 +1384,269 @@ export default function LandingPage() {
               <X size={20} />
             </button>
 
-            <h3 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)' }}>
-              Sign In to NearFix
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '24px' }}>
-              Choose your profile type to continue.
-            </p>
+            {authModalPurpose === 'location_map' ? (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: 'rgba(79, 70, 229, 0.1)',
+                    color: 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px'
+                  }}>
+                    <MapPin size={26} />
+                  </div>
+                  <h3 style={{ fontSize: '1.35rem', fontWeight: '800', marginBottom: '6px', color: 'var(--text-primary)' }}>
+                    Sign In or Sign Up to View Map
+                  </h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
+                    Your location has been detected! Sign in or create an account to view and connect with nearby verified professionals on the live map.
+                  </p>
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Option 1: Customer */}
-              <div
-                onClick={() => {
-                  setShowAuthModal(false);
-                  navigate('/login/customer');
-                }}
-                style={{
-                  padding: '16px',
-                  borderRadius: '16px',
-                  border: '1px solid var(--border-glass)',
-                  background: 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '14px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--accent-primary)';
-                  e.currentTarget.style.background = 'var(--accent-light)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-glass)';
-                  e.currentTarget.style.background = 'var(--bg-primary)';
-                }}
-              >
-                <div style={{
-                  background: 'rgba(79, 70, 229, 0.1)',
-                  padding: '12px',
-                  borderRadius: '12px',
-                  color: 'var(--accent-primary)'
-                }}>
-                  <UserCheck size={22} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    Find a Professional
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Option 1: Existing Customer Sign In */}
+                  <div
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      navigate('/login/customer?redirect=/app/map');
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                      e.currentTarget.style.background = 'var(--accent-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-glass)';
+                      e.currentTarget.style.background = 'var(--bg-primary)';
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(79, 70, 229, 0.1)',
+                      padding: '10px',
+                      borderRadius: '12px',
+                      color: 'var(--accent-primary)'
+                    }}>
+                      <UserCheck size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                        Customer Sign In
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Already have an account? Sign in and open map
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Hire trusted workers, track bookings & leave reviews
-                  </div>
-                </div>
-                <ChevronRight size={18} color="var(--text-muted)" />
-              </div>
 
-              {/* Option 2: Service Provider */}
-              <div
-                onClick={() => {
-                  setShowAuthModal(false);
-                  navigate('/login/worker');
-                }}
-                style={{
-                  padding: '16px',
-                  borderRadius: '16px',
-                  border: '1px solid var(--border-glass)',
-                  background: 'var(--bg-primary)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '14px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--success)';
-                  e.currentTarget.style.background = 'var(--success-light)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-glass)';
-                  e.currentTarget.style.background = 'var(--bg-primary)';
-                }}
-              >
-                <div style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  padding: '12px',
-                  borderRadius: '12px',
-                  color: 'var(--success)'
-                }}>
-                  <Briefcase size={22} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    Become a Service Provider
+                  {/* Option 2: New Customer Sign Up */}
+                  <div
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      navigate('/login/customer?mode=signup&redirect=/app/map');
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '16px',
+                      border: '1.5px solid rgba(79, 70, 229, 0.35)',
+                      background: 'rgba(79, 70, 229, 0.04)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                      e.currentTarget.style.background = 'rgba(79, 70, 229, 0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(79, 70, 229, 0.35)';
+                      e.currentTarget.style.background = 'rgba(79, 70, 229, 0.04)';
+                    }}
+                  >
+                    <div style={{
+                      background: 'var(--accent-primary)',
+                      padding: '10px',
+                      borderRadius: '12px',
+                      color: '#ffffff'
+                    }}>
+                      <Sparkles size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.98rem', color: 'var(--accent-primary)' }}>
+                        New Customer Sign Up
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Create a free account to book local experts
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--accent-primary)" />
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Manage client bookings, schedule & showcase work
+
+                  {/* Option 3: Service Provider Login */}
+                  <div
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      navigate('/login/worker?redirect=/app/map');
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--success)';
+                      e.currentTarget.style.background = 'var(--success-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-glass)';
+                      e.currentTarget.style.background = 'var(--bg-primary)';
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      padding: '10px',
+                      borderRadius: '12px',
+                      color: 'var(--success)'
+                    }}>
+                      <Briefcase size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                        Service Provider Login
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Sign in to accept bookings & manage jobs
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
                   </div>
                 </div>
-                <ChevronRight size={18} color="var(--text-muted)" />
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)' }}>
+                  Sign In to NearFix
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '24px' }}>
+                  Choose your profile type to continue.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Option 1: Customer */}
+                  <div
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      navigate('/login/customer');
+                    }}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                      e.currentTarget.style.background = 'var(--accent-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-glass)';
+                      e.currentTarget.style.background = 'var(--bg-primary)';
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(79, 70, 229, 0.1)',
+                      padding: '12px',
+                      borderRadius: '12px',
+                      color: 'var(--accent-primary)'
+                    }}>
+                      <UserCheck size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                        Find a Professional
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        Hire trusted workers, track bookings & leave reviews
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </div>
+
+                  {/* Option 2: Service Provider */}
+                  <div
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      navigate('/login/worker');
+                    }}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--success)';
+                      e.currentTarget.style.background = 'var(--success-light)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-glass)';
+                      e.currentTarget.style.background = 'var(--bg-primary)';
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      padding: '12px',
+                      borderRadius: '12px',
+                      color: 'var(--success)'
+                    }}>
+                      <Briefcase size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                        Become a Service Provider
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        Manage client bookings, schedule & showcase work
+                      </div>
+                    </div>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -218,14 +218,21 @@ export default function WorkerVerification() {
                 <img 
                   src={worker.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150'} 
                   alt={worker.name} 
-                  style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)' }}
+                  style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)', flexShrink: 0 }}
                 />
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
                       {worker.name}
                     </h3>
-                    {getStatusBadge(worker.verificationStatus || 'Pending')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {getStatusBadge(worker.verificationStatus || 'Pending')}
+                      {worker.documents && Object.values(worker.documents).some(d => Boolean(d && d.trim())) ? (
+                        <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          📁 {Object.values(worker.documents).filter(d => Boolean(d && d.trim())).length} Docs Attached
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: 'var(--accent-primary)' }}>
@@ -238,7 +245,7 @@ export default function WorkerVerification() {
                       <MapPin size={14} /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '16px', marginTop: '6px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {worker.email}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={12} /> {worker.phone || '+91 9446000000'}</span>
                   </div>
@@ -246,7 +253,7 @@ export default function WorkerVerification() {
               </div>
 
               {/* Submission Date & Review Button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginLeft: 'auto' }}>
                 <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                   <div>Submitted Date</div>
                   <div style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>

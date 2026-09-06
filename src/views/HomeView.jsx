@@ -76,28 +76,28 @@ export default function HomeView() {
         style={{ 
           background: 'linear-gradient(135deg, var(--accent-primary) 0%, #1e40af 100%)', 
           borderRadius: '24px', 
-          padding: '36px 40px', 
+          padding: 'clamp(20px, 4vw, 36px) clamp(16px, 4vw, 40px)', 
           color: 'white', 
           position: 'relative', 
           overflow: 'hidden', 
-          marginBottom: '32px',
+          marginBottom: '28px',
           boxShadow: '0 12px 30px rgba(37,99,235,0.25)' 
         }}
       >
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '640px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
             <ShieldCheck size={14} /> 100% KYC Verified Local Workers
           </div>
-          <h1 style={{ fontSize: '2.4rem', fontWeight: '800', lineHeight: '1.2', marginBottom: '14px', letterSpacing: '-0.5px' }}>
+          <h1 style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2.4rem)', fontWeight: '800', lineHeight: '1.2', marginBottom: '12px', letterSpacing: '-0.5px' }}>
             Book Verified Nearby Professionals for <span style={{ color: '#4ade80' }}>Normal & Urgent Services</span>
           </h1>
-          <p style={{ fontSize: '1rem', opacity: 0.92, lineHeight: '1.5', marginBottom: '24px' }}>
+          <p style={{ fontSize: 'clamp(0.9rem, 1.8vw, 1rem)', opacity: 0.92, lineHeight: '1.5', marginBottom: '20px' }}>
             Find trusted plumbers, electricians, painters & carpenters nearby. Book on your schedule or request priority emergency assistance.
           </p>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <button 
               onClick={() => navigate('/app/map')}
-              style={{ background: '#ffffff', color: 'var(--accent-primary)', padding: '12px 24px', borderRadius: '12px', fontWeight: '700', fontSize: '0.95rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}
+              style={{ background: '#ffffff', color: 'var(--accent-primary)', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', fontSize: '0.92rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}
             >
               <MapIcon size={18} /> Open Interactive Map
             </button>
@@ -107,8 +107,8 @@ export default function HomeView() {
 
       {/* Category Filter Bar */}
       <div style={{ marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '12px' }}>Service Categories</h3>
-        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '10px' }}>Service Categories</h3>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {CATEGORIES.map(cat => {
             const Icon = cat.icon;
             const isSelected = selectedCategory === cat.id;
@@ -119,20 +119,21 @@ export default function HomeView() {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 18px',
+                  gap: '6px',
+                  padding: '8px 16px',
                   borderRadius: '12px',
                   border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-glass)',
                   background: isSelected ? 'var(--accent-light)' : '#ffffff',
                   color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   fontWeight: isSelected ? '700' : '500',
-                  fontSize: '0.9rem',
+                  fontSize: '0.85rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  flexShrink: 0
                 }}
               >
-                <Icon size={16} />
+                <Icon size={15} />
                 {cat.label}
               </button>
             );
@@ -141,8 +142,8 @@ export default function HomeView() {
       </div>
 
       {/* Search & Layout Control */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 300px' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: '1 1 240px' }}>
           <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input 
             type="text" 
@@ -150,22 +151,22 @@ export default function HomeView() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input-field"
-            style={{ paddingLeft: '44px', height: '48px', fontSize: '0.95rem', borderRadius: '14px' }}
+            style={{ paddingLeft: '44px', height: '46px', fontSize: '0.92rem', borderRadius: '12px' }}
           />
         </div>
 
-        <div style={{ display: 'flex', background: '#ffffff', borderRadius: '14px', padding: '4px', border: '1px solid var(--border-glass)', height: '48px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', background: '#ffffff', borderRadius: '12px', padding: '3px', border: '1px solid var(--border-glass)', height: '46px', alignItems: 'center' }}>
           <button 
             onClick={() => setViewMode('list')}
-            style={{ padding: '8px 16px', borderRadius: '10px', border: 'none', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: viewMode === 'list' ? '600' : '500', fontSize: '0.85rem' }}
+            style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', background: viewMode === 'list' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'list' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: viewMode === 'list' ? '600' : '500', fontSize: '0.82rem' }}
           >
-            <List size={16} /> List
+            <List size={15} /> List
           </button>
           <button 
             onClick={() => setViewMode('map')}
-            style={{ padding: '8px 16px', borderRadius: '10px', border: 'none', background: viewMode === 'map' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'map' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: viewMode === 'map' ? '600' : '500', fontSize: '0.85rem' }}
+            style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', background: viewMode === 'map' ? 'var(--accent-primary)' : 'transparent', color: viewMode === 'map' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: viewMode === 'map' ? '600' : '500', fontSize: '0.82rem' }}
           >
-            <MapIcon size={16} /> Map
+            <MapIcon size={15} /> Map
           </button>
         </div>
       </div>
@@ -178,12 +179,12 @@ export default function HomeView() {
       ) : viewMode === 'list' ? (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', margin: 0 }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: '700', margin: 0 }}>
               Verified Professionals ({filteredWorkers.length})
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
             {filteredWorkers.map(worker => (
               <WorkerCard key={worker._id || worker.id} worker={worker} />
             ))}
@@ -196,7 +197,7 @@ export default function HomeView() {
           </div>
         </div>
       ) : (
-        <div className="glass-panel" style={{ height: '520px', padding: '0', overflow: 'hidden', border: '1px solid var(--border-glass)', borderRadius: '20px' }}>
+        <div className="glass-panel" style={{ height: 'min(72vh, 520px)', minHeight: '340px', padding: '0', overflow: 'hidden', border: '1px solid var(--border-glass)', borderRadius: '20px' }}>
           <MapComponent workers={filteredWorkers} containerStyle={{ width: '100%', height: '100%' }} />
         </div>
       )}

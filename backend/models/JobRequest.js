@@ -45,14 +45,18 @@ const JobRequestSchema = new mongoose.Schema({
     default: ''
   },
 
+  serviceAddress: {
+    type: String,
+    default: ''
+  },
+
   customerLocation: {
     type: {
       type: String,
-      enum: ['Point']
+      enum: ['Point'],
+      default: 'Point'
     },
-    coordinates: {
-      type: [Number]
-    }
+    coordinates: [Number]
   },
 
   status: {

@@ -11,6 +11,7 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'BOOKING_REQUEST',
+      'NORMAL_BOOKING_REQUEST',
       'EMERGENCY_BOOKING_REQUEST',
       'BOOKING_ACCEPTED',
       'BOOKING_REJECTED',

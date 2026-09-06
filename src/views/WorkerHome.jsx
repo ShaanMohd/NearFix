@@ -4,12 +4,18 @@ import {
   Briefcase, Zap, ShieldCheck, AlertOctagon, Power, Calendar, User, DollarSign
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import CustomerLocationMap from '../components/CustomerLocationMap';
 
 export default function WorkerHome() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [expandedMapId, setExpandedMapId] = useState(null);
+
+  const toggleMap = (id) => {
+    setExpandedMapId(prev => prev === id ? null : id);
+  };
 
   const currentUser = JSON.parse(localStorage.getItem('userProfile')) || {};
   const token = localStorage.getItem('token');
@@ -26,7 +32,7 @@ export default function WorkerHome() {
       }
 
       // Fetch Bookings as Worker
-      const jobsRes = await fetch('http://localhost:5000/api/jobs', {
+      const jobsRes = await fetch('http://localhost:5000/api/jobs?asWorker=true', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const jobsData = await jobsRes.json();
@@ -76,6 +82,51 @@ export default function WorkerHome() {
     } catch (err) {
       alert('Error updating status: ' + err.message);
     }
+  };
+
+  const renderLocationBadge = (job) => {
+    let coordsText = null;
+    let googleMapsUrl = null;
+    if (job.customerLocation?.coordinates && job.customerLocation.coordinates.length === 2) {
+      const [lng, lat] = job.customerLocation.coordinates;
+      coordsText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    } else if (job.serviceAddress || job.location) {
+      const addr = job.serviceAddress || job.location;
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+      const m = addr.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+      if (m) coordsText = `${Number(m[1]).toFixed(4)}, ${Number(m[2]).toFixed(4)}`;
+    }
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+        <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <MapPin size={14} color="var(--accent-primary)" /> {job.serviceAddress || job.location || 'Customer Address'}
+        </span>
+        {coordsText && (
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              color: '#059669',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            GPS: {coordsText} ↗
+          </a>
+        )}
+      </div>
+    );
   };
 
   const pendingRequests = requests.filter(r => r.status === 'Pending');
@@ -134,7 +185,7 @@ export default function WorkerHome() {
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '14px', marginBottom: '28px' }}>
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px', borderLeft: '4px solid #f59e0b' }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600' }}>Pending Requests</span>
           <div style={{ fontSize: '1.6rem', fontWeight: '800', marginTop: '4px', color: '#d97706' }}>{pendingRequests.length}</div>
@@ -172,7 +223,7 @@ export default function WorkerHome() {
                 key={req._id}
                 className="glass-panel"
                 style={{
-                  padding: '24px',
+                  padding: 'clamp(16px, 3.5vw, 24px)',
                   borderRadius: '18px',
                   borderLeft: req.isEmergency ? '6px solid #ef4444' : '4px solid #f59e0b',
                   background: req.isEmergency ? '#fff5f5' : '#ffffff',
@@ -192,11 +243,9 @@ export default function WorkerHome() {
                     />
                     <div>
                       <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem', fontWeight: '700' }}>
-                        Customer: {req.customerId?.name || 'Customer'}
+                        Customer: {req.customerId?.name || 'Customer'} {req.customerId?.phone && <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>• 📞 {req.customerId.phone}</span>}
                       </h3>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MapPin size={13} color="var(--accent-primary)" /> {req.location || 'Customer Address'}
-                      </span>
+                      {renderLocationBadge(req)}
                     </div>
                   </div>
 
@@ -212,7 +261,7 @@ export default function WorkerHome() {
                 </div>
 
                 {/* Details Breakdown */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: req.isEmergency ? '#ffffff' : 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.88rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '12px', background: req.isEmergency ? '#ffffff' : 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.88rem' }}>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Service Category:</span>
                     <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>{req.serviceType}</div>
@@ -238,28 +287,60 @@ export default function WorkerHome() {
                   </p>
                 )}
 
-                {/* Accept / Reject Buttons */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
-                  <button 
-                    onClick={() => handleUpdateStatus(req._id, 'Rejected')}
-                    style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 18px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <XCircle size={16} /> Reject Request
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatus(req._id, 'Accepted')}
-                    className="btn-primary"
-                    style={{ 
-                      padding: '8px 22px', 
-                      fontSize: '0.88rem', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '4px',
-                      background: req.isEmergency ? '#ef4444' : 'var(--accent-primary)' 
+                {/* Customer Location & Map Feature */}
+                {expandedMapId === req._id && (
+                  <CustomerLocationMap 
+                    customerLocation={req.customerLocation}
+                    serviceAddress={req.serviceAddress || req.location}
+                    customerName={req.customerId?.name || 'Customer'}
+                  />
+                )}
+
+                {/* Accept / Reject & View Map Buttons */}
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => toggleMap(req._id)}
+                    style={{
+                      background: expandedMapId === req._id ? 'var(--accent-primary)' : 'rgba(37,99,235,0.08)',
+                      border: '1px solid var(--accent-primary)',
+                      color: expandedMapId === req._id ? '#ffffff' : 'var(--accent-primary)',
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      fontSize: '0.84rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    <CheckCircle2 size={16} /> Accept Request
+                    <MapPin size={15} /> {expandedMapId === req._id ? 'Hide Location Map' : 'View Location & Map'}
                   </button>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button 
+                      onClick={() => handleUpdateStatus(req._id, 'Rejected')}
+                      style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 18px', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <XCircle size={16} /> Reject Request
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatus(req._id, 'Accepted')}
+                      className="btn-primary"
+                      style={{ 
+                        padding: '8px 22px', 
+                        fontSize: '0.88rem', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        background: req.isEmergency ? '#ef4444' : 'var(--accent-primary)' 
+                      }}
+                    >
+                      <CheckCircle2 size={16} /> Accept Request
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -275,21 +356,54 @@ export default function WorkerHome() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {acceptedBookings.map(b => (
-              <div key={b._id} className="glass-panel" style={{ padding: '20px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '700' }}>{b.serviceType}</h4>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Customer: <strong>{b.customerId?.name}</strong> ({b.customerId?.phone || 'N/A'}) • {b.date} ({b.time})
-                  </p>
+              <div key={b._id} className="glass-panel" style={{ padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: '700' }}>{b.serviceType}</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      Customer: <strong>{b.customerId?.name}</strong> ({b.customerId?.phone || 'N/A'}) • {b.date} ({b.time})
+                    </p>
+                    {renderLocationBadge(b)}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMap(b._id)}
+                      style={{
+                        background: expandedMapId === b._id ? 'var(--accent-primary)' : 'rgba(37,99,235,0.08)',
+                        border: '1px solid var(--accent-primary)',
+                        color: expandedMapId === b._id ? '#ffffff' : 'var(--accent-primary)',
+                        padding: '8px 14px',
+                        borderRadius: '10px',
+                        fontSize: '0.82rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <MapPin size={14} /> {expandedMapId === b._id ? 'Hide Map' : 'View Map'}
+                    </button>
+
+                    <button 
+                      onClick={() => handleUpdateStatus(b._id, 'Completed')}
+                      className="btn-primary"
+                      style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <CheckCircle2 size={16} /> Mark Service Completed
+                    </button>
+                  </div>
                 </div>
 
-                <button 
-                  onClick={() => handleUpdateStatus(b._id, 'Completed')}
-                  className="btn-primary"
-                  style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <CheckCircle2 size={16} /> Mark Service Completed
-                </button>
+                {expandedMapId === b._id && (
+                  <CustomerLocationMap 
+                    customerLocation={b.customerLocation}
+                    serviceAddress={b.serviceAddress || b.location}
+                    customerName={b.customerId?.name || 'Customer'}
+                  />
+                )}
               </div>
             ))}
           </div>

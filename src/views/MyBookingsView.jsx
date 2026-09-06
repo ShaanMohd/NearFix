@@ -188,7 +188,7 @@ export default function MyBookingsView() {
               key={b._id} 
               className="glass-panel" 
               style={{ 
-                padding: '24px', 
+                padding: 'clamp(16px, 3.5vw, 24px)', 
                 borderRadius: '18px', 
                 display: 'flex', 
                 flexDirection: 'column', 
@@ -225,7 +225,7 @@ export default function MyBookingsView() {
               </div>
 
               {/* Details grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '12px', background: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem' }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Date & Time:</span>
                   <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginTop: '2px' }}>
@@ -290,8 +290,8 @@ export default function MyBookingsView() {
 
       {/* Review Modal */}
       {reviewBooking && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ background: '#ffffff', width: '100%', maxWidth: '450px', borderRadius: '20px', padding: '28px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="glass-panel" style={{ background: '#ffffff', width: '100%', maxWidth: 'min(94vw, 460px)', maxHeight: '90vh', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '20px', padding: 'clamp(18px, 4vw, 28px)' }}>
             <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: '0 0 8px 0' }}>Rate Your Service Experience</h2>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
               How was your service with <strong>{reviewBooking.workerId?.name}</strong>?
@@ -351,8 +351,8 @@ export default function MyBookingsView() {
 
       {/* Complaint Modal */}
       {complaintBooking && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-panel" style={{ background: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '20px', padding: '28px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="glass-panel" style={{ background: '#ffffff', width: '100%', maxWidth: 'min(94vw, 480px)', maxHeight: '90vh', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '20px', padding: 'clamp(18px, 4vw, 28px)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#ef4444' }}>
               <ShieldAlert size={22} />
               <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>Submit a Complaint</h2>

@@ -48,15 +48,15 @@ export default function ProfileView() {
         </p>
       </div>
 
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', display: 'flex', gap: '28px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '32px' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(18px, 3.5vw, 32px)', borderRadius: '24px', display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '28px' }}>
         <img 
           src={storedProfile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Customer')}`} 
           alt={name} 
-          style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--accent-light)' }} 
+          style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--accent-light)', flexShrink: 0 }} 
         />
         
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {name || 'Customer User'}
             <span style={{ background: 'var(--accent-light)', color: 'var(--accent-primary)', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
               Customer Account
@@ -72,7 +72,7 @@ export default function ProfileView() {
       </div>
 
       {/* Edit Form */}
-      <div className="glass-panel" style={{ padding: '28px', borderRadius: '24px' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(18px, 3.5vw, 28px)', borderRadius: '24px' }}>
         <h3 style={{ fontSize: '1.2rem', fontWeight: '800', margin: '0 0 16px 0' }}>Account Settings</h3>
 
         <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

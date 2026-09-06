@@ -123,7 +123,7 @@ export default function Settings() {
       </div>
 
       {/* Admin Profile Section */}
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 32px)', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', color: 'var(--accent-primary)' }}>
           <User size={22} />
           <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -132,13 +132,13 @@ export default function Settings() {
         </div>
 
         <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <img 
               src={avatar} 
               alt="Admin Avatar" 
-              style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)' }}
+              style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)', flexShrink: 0 }}
             />
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 'min(100%, 220px)' }}>
               <label className="input-label">Avatar Photo URL</label>
               <input 
                 type="text" 
@@ -187,7 +187,7 @@ export default function Settings() {
       </div>
 
       {/* Security / Password Change */}
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 32px)', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', color: 'var(--accent-primary)' }}>
           <Lock size={22} />
           <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -250,7 +250,7 @@ export default function Settings() {
       </div>
 
       {/* Notification Preferences */}
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 32px)', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', color: 'var(--accent-primary)' }}>
           <Bell size={22} />
           <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>

@@ -15,8 +15,8 @@ const ProjectSchema = new mongoose.Schema({
 
   description: {
     type: String,
-    required: true,
     trim: true,
+    default: '',
     maxlength: 1500
   },
 
@@ -24,6 +24,38 @@ const ProjectSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
+  },
+
+  mediaType: {
+    type: String,
+    enum: ['image', 'video'],
+    default: 'image'
+  },
+
+  videoUrl: {
+    type: String,
+    default: ''
+  },
+
+  videoDuration: {
+    type: String,
+    default: ''
+  },
+
+  projectType: {
+    type: String,
+    enum: ['Completed Work', 'Before & After', 'New Installation', 'Installation', 'Repair', 'Maintenance', 'Other'],
+    default: 'Completed Work'
+  },
+
+  beforeImage: {
+    type: String,
+    default: ''
+  },
+
+  afterImage: {
+    type: String,
+    default: ''
   },
 
   images: [{
