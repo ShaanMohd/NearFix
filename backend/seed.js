@@ -12,15 +12,25 @@ const JobRequest = require('./models/JobRequest');
 const Notification = require('./models/Notification');
 const Review = require('./models/Review');
 
-async function seedData() {
-  // Clear existing development data
-  await User.deleteMany({});
-  await Project.deleteMany({});
-  await Complaint.deleteMany({});
-  await JobRequest.deleteMany({});
-  await Notification.deleteMany({});
-  await Review.deleteMany({});
-  console.log('Cleared existing database models.');
+async function seedData(options = {}) {
+  const force = options && options.force === true;
+  const userCount = await User.countDocuments();
+
+  if (userCount > 0 && !force) {
+    console.log(`[Seed] Database already contains ${userCount} users. Skipping seed to protect user data.`);
+    return;
+  }
+
+  // Clear existing development data ONLY when force is explicitly set
+  if (force) {
+    await User.deleteMany({});
+    await Project.deleteMany({});
+    await Complaint.deleteMany({});
+    await JobRequest.deleteMany({});
+    await Notification.deleteMany({});
+    await Review.deleteMany({});
+    console.log('[Seed] Cleared existing database models (forced reset).');
+  }
 
   const salt = await bcrypt.genSalt(10);
   const password = await bcrypt.hash('password123', salt);
@@ -482,6 +492,7 @@ async function seedData() {
 }
 
 async function runStandaloneSeed() {
+  const force = process.argv.includes('--force') || process.argv.includes('-f');
   try {
     let mongoUri = process.env.MONGO_URI;
     try {
@@ -499,7 +510,16 @@ async function runStandaloneSeed() {
       console.log('Connected to MongoMemoryServer for Seeding...');
     }
 
-    await seedData();
+    const count = await User.countDocuments();
+    if (count > 0 && !force) {
+      console.log(`\n⚠️  Database already contains ${count} users.`);
+      console.log('To prevent accidental data loss, existing records were NOT deleted.');
+      console.log('If you want to completely reset and re-seed all demo data, run:');
+      console.log('  node seed.js --force\n');
+      process.exit(0);
+    }
+
+    await seedData({ force: true });
     process.exit(0);
   } catch (err) {
     console.error('Seed Error:', err);

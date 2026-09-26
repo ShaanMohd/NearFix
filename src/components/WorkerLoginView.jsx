@@ -163,6 +163,10 @@ export default function WorkerLoginView() {
       setError('Enter a valid email address.');
       return;
     }
+    if (formData.password.length < 8) {
+      setError(`Password must be at least 8 characters long (currently ${formData.password.length} characters). Please add ${8 - formData.password.length} more character${8 - formData.password.length === 1 ? '' : 's'}.`);
+      return;
+    }
     if (!isPasswordValid) {
       setError('Password must contain uppercase, lowercase, number, and special character (8-72 characters).');
       return;
@@ -733,7 +737,7 @@ export default function WorkerLoginView() {
                   onChange={handleAadhaarChange} 
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  <span>Use demo: <b onClick={() => setFormData({...formData, aadhar: '1111 2222 3333'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>1111 2222 3333</b>, <b onClick={() => setFormData({...formData, aadhar: '4444 5555 6666'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>4444 5555 6666</b></span>
+                  <span>Use demo: <b onClick={() => setFormData({...formData, aadhar: '1111 2222 3333'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>1111 2222 3333</b>, <b onClick={() => setFormData({...formData, aadhar: '9999 8888 7777'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>9999 8888 7777</b>, <b onClick={() => setFormData({...formData, aadhar: '1234 1234 1234'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>1234 1234 1234</b></span>
                   <span>{cleanAadhaar.length}/12 digits</span>
                 </div>
               </div>
@@ -869,8 +873,14 @@ export default function WorkerLoginView() {
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '8px 12px', marginTop: '6px', fontSize: '0.76rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '500' }}>Password requirements:</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
-                    <span style={{ color: passwordCriteria.minLength ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {passwordCriteria.minLength ? '✓' : '•'} 8-72 characters
+                    <span style={{ 
+                      color: passwordCriteria.minLength ? 'var(--success)' : (formData.password ? '#f59e0b' : 'var(--text-secondary)'), 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      fontWeight: (formData.password && !passwordCriteria.minLength) ? '600' : 'normal'
+                    }}>
+                      {passwordCriteria.minLength ? '✓' : '•'} 8-72 characters {formData.password.length > 0 ? `(${formData.password.length}/8 min)` : ''}
                     </span>
                     <span style={{ color: passwordCriteria.hasUpper ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {passwordCriteria.hasUpper ? '✓' : '•'} 1 uppercase (A-Z)
@@ -925,9 +935,9 @@ export default function WorkerLoginView() {
 
               <button 
                 type="submit" 
-                disabled={loading || !isAadhaarValid || !isPhoneValid || !isPasswordValid || !isPasswordMatch} 
+                disabled={loading} 
                 className="btn-primary" 
-                style={{ marginTop: '8px', width: '100%', background: 'var(--success)', boxShadow: '0 4px 15px rgba(16,185,129,0.4)', opacity: (!isAadhaarValid || !isPhoneValid || !isPasswordValid || !isPasswordMatch) ? 0.75 : 1 }}
+                style={{ marginTop: '8px', width: '100%', background: 'var(--success)', boxShadow: '0 4px 15px rgba(16,185,129,0.4)', opacity: loading ? 0.75 : 1 }}
               >
                 {loading ? <Loader2 size={20} className="animate-spin" /> : 'Verify Aadhaar & Continue'}
               </button>

@@ -2,9 +2,115 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, Star, ShieldCheck, Briefcase, Calendar, X, Zap, 
   Loader2, Plus, Image as ImageIcon, FileText, Upload, CheckCircle2, AlertOctagon, Eye, Trash2, Navigation,
-  Play, Video, Film, Edit3, Check, CloudUpload, ArrowRight, Layers, Sparkles, SlidersHorizontal, AlertCircle
+  Play, Video, Film, Edit3, Check, CloudUpload, ArrowRight, Layers, Sparkles, SlidersHorizontal, AlertCircle,
+  Lock, Info, Compass, DollarSign, Camera
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { resolveAvatarUrl } from '../utils/avatar';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix standard Leaflet default icon paths in Vite
+import markerIconPng from 'leaflet/dist/images/marker-icon.png';
+import markerShadowPng from 'leaflet/dist/images/marker-shadow.png';
+
+const defaultLocationIcon = L.icon({
+  iconUrl: markerIconPng,
+  shadowUrl: markerShadowPng,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Custom interactive Service Location marker pin
+const serviceLocationMarkerIcon = L.divIcon({
+  className: 'service-location-pin',
+  html: `
+    <div style="
+      background: #4f46e5;
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 12px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      cursor: grab;
+      user-select: none;
+    ">
+      <span>📍</span> Service Location
+    </div>
+  `,
+  iconSize: [130, 36],
+  iconAnchor: [65, 36],
+  popupAnchor: [0, -36]
+});
+
+// Interactive map component that moves marker on click or drag
+function ServiceLocationPickerMap({ markerPos, onPositionChange }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      if (markerPos) {
+        map.setView([markerPos.lat, markerPos.lng], map.getZoom() || 14);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [map, markerPos]);
+
+  useMapEvents({
+    click(e) {
+      onPositionChange({ lat: e.latlng.lat, lng: e.latlng.lng });
+    }
+  });
+
+  return markerPos ? (
+    <Marker
+      position={[markerPos.lat, markerPos.lng]}
+      draggable={true}
+      icon={serviceLocationMarkerIcon}
+      eventHandlers={{
+        dragend(e) {
+          const latlng = e.target.getLatLng();
+          onPositionChange({ lat: latlng.lat, lng: latlng.lng });
+        }
+      }}
+    >
+      <Popup>
+        <div style={{ fontSize: '12px', fontWeight: '600' }}>
+          📍 Normal Service Location<br />
+          <span style={{ color: '#64748b', fontSize: '11px' }}>
+            Lat: {markerPos.lat.toFixed(4)}, Lng: {markerPos.lng.toFixed(4)}
+          </span>
+        </div>
+      </Popup>
+    </Marker>
+  ) : null;
+}
+
+// Relative time formatting helper for location updates
+function formatRelativeTime(dateInput) {
+  if (!dateInput) return 'Not updated yet';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return 'Not updated yet';
+  const now = new Date();
+  const diffSec = Math.floor((now - date) / 1000);
+  if (diffSec < 45) return 'Updated just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `Updated ${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `Updated ${diffHour} hour${diffHour === 1 ? '' : 's'} ago`;
+  return `Updated on ${date.toLocaleDateString()}`;
+}
 
 export const resolveMediaUrl = (url) => {
   if (!url) return '';
@@ -77,6 +183,342 @@ export default function WorkerProfileView() {
   const [skillCert, setSkillCert] = useState('');
   const [expProof, setExpProof] = useState('');
   const [submittingKYC, setSubmittingKYC] = useState(false);
+
+  // Worker Profile Editing & Location State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    title: '',
+    phone: '',
+    bio: '',
+    skills: [],
+    experienceYears: 0,
+    serviceRadius: '15 km',
+    serviceMode: 'Home Service',
+    pricingType: 'Hourly',
+    startingPrice: 500,
+    businessName: '',
+    address: '',
+    locationCoords: { lat: 11.2588, lng: 75.7804 }
+  });
+  const [skillInput, setSkillInput] = useState('');
+  const [showMapInModal, setShowMapInModal] = useState(false);
+  const [detectingGpsInModal, setDetectingGpsInModal] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  // Current Location State
+  const [updatingCurrentLoc, setUpdatingCurrentLoc] = useState(false);
+  const [currentLocToast, setCurrentLocToast] = useState(null);
+
+  // Worker Profile Picture Upload State
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const avatarInputRef = useRef(null);
+
+  const handleSelectAvatar = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setAvatarError('');
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      setAvatarError('Only JPG, PNG and WebP images are allowed.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Profile image must be smaller than 5 MB.');
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveAvatar = async (e) => {
+    e.preventDefault();
+    if (!avatarFile) {
+      setAvatarError('Please select a photo first.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setAvatarError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users/me/avatar', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setWorker(prev => ({ ...prev, avatar: data.avatar }));
+        const stored = JSON.parse(localStorage.getItem('userProfile')) || {};
+        localStorage.setItem('userProfile', JSON.stringify({ ...stored, avatar: data.avatar }));
+        window.dispatchEvent(new Event('storage'));
+        setShowAvatarModal(false);
+        setAvatarFile(null);
+        setAvatarPreview('');
+      } else {
+        setAvatarError(data.message || 'Failed to upload profile photo.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAvatarError('Network error uploading avatar: ' + err.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleOpenEditProfile = (focusSection = 'details') => {
+    if (!worker) return;
+    setEditError('');
+    const coords = worker.location?.coordinates;
+    const lat = (coords && typeof coords[1] === 'number') ? coords[1] : 11.2588;
+    const lng = (coords && typeof coords[0] === 'number') ? coords[0] : 75.7804;
+
+    setEditForm({
+      name: worker.name || '',
+      title: worker.title || worker.skills?.[0] || '',
+      phone: worker.phone ? worker.phone.replace(/\D/g, '') : '',
+      bio: worker.bio || '',
+      skills: Array.isArray(worker.skills) ? [...worker.skills] : [],
+      experienceYears: worker.experienceYears !== undefined ? worker.experienceYears : 2,
+      serviceRadius: worker.serviceRadius || '15 km',
+      serviceMode: worker.serviceMode || 'Home Service',
+      pricingType: worker.pricingType || 'Hourly',
+      startingPrice: worker.startingPrice !== undefined ? worker.startingPrice : (worker.hourlyRate || 500),
+      businessName: worker.businessName || '',
+      address: worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala'),
+      locationCoords: { lat, lng }
+    });
+    setSkillInput('');
+    setShowMapInModal(focusSection === 'location');
+    setShowEditModal(true);
+  };
+
+  const handleAddSkill = () => {
+    const trimmed = skillInput.trim();
+    if (!trimmed) return;
+    if (!editForm.skills.includes(trimmed)) {
+      setEditForm(prev => ({ ...prev, skills: [...prev.skills, trimmed] }));
+    }
+    setSkillInput('');
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setEditForm(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skillToRemove)
+    }));
+  };
+
+  const handleUseCurrentLocationForService = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setDetectingGpsInModal(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setEditForm(prev => ({
+          ...prev,
+          locationCoords: { lat: latitude, lng: longitude },
+          address: prev.address ? prev.address : `GPS Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
+        }));
+        setShowMapInModal(true);
+        setDetectingGpsInModal(false);
+      },
+      (err) => {
+        alert('Could not access GPS location: ' + err.message + '. You can still select your location on the map manually.');
+        setDetectingGpsInModal(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setEditError('');
+
+    // Frontend validations
+    const cleanName = (editForm.name || '').trim();
+    if (cleanName.length < 2 || cleanName.length > 60) {
+      setEditError('Full Name must be between 2 and 60 characters.');
+      return;
+    }
+    if (!/^[a-zA-Z\s.'-]+$/.test(cleanName) || /^\d+$/.test(cleanName)) {
+      setEditError('Full Name contains invalid characters. Numbers-only are not allowed.');
+      return;
+    }
+
+    const cleanPhone = (editForm.phone || '').replace(/\D/g, '');
+    if (!/^[6-9][0-9]{9}$/.test(cleanPhone)) {
+      setEditError('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+      return;
+    }
+
+    const cleanTitle = (editForm.title || '').trim();
+    if (cleanTitle.length > 0 && (cleanTitle.length < 2 || cleanTitle.length > 80)) {
+      setEditError('Worker Title must be between 2 and 80 characters.');
+      return;
+    }
+
+    if (editForm.bio && editForm.bio.length > 1000) {
+      setEditError('Bio / About section cannot exceed 1000 characters.');
+      return;
+    }
+
+    const exp = Number(editForm.experienceYears);
+    if (isNaN(exp) || exp < 0 || exp > 70) {
+      setEditError('Years of experience must be a non-negative number between 0 and 70.');
+      return;
+    }
+
+    const price = Number(editForm.startingPrice);
+    if (isNaN(price) || price < 0) {
+      setEditError('Starting price must be a non-negative number.');
+      return;
+    }
+
+    const cleanAddress = (editForm.address || '').trim();
+    if (cleanAddress.length > 200) {
+      setEditError('Service Address cannot exceed 200 characters.');
+      return;
+    }
+
+    setSavingProfile(true);
+    const token = localStorage.getItem('token');
+
+    try {
+      const payload = {
+        name: cleanName,
+        phone: cleanPhone,
+        title: cleanTitle,
+        bio: (editForm.bio || '').trim(),
+        skills: editForm.skills,
+        experienceYears: exp,
+        serviceRadius: editForm.serviceRadius,
+        serviceMode: editForm.serviceMode,
+        pricingType: editForm.pricingType,
+        startingPrice: price,
+        hourlyRate: price,
+        businessName: (editForm.businessName || '').trim(),
+        address: cleanAddress,
+        location: editForm.locationCoords ? {
+          type: 'Point',
+          coordinates: [Number(editForm.locationCoords.lng), Number(editForm.locationCoords.lat)]
+        } : undefined
+      };
+
+      const res = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const updatedUser = await res.json();
+        setWorker(prev => ({ ...prev, ...updatedUser }));
+        const stored = JSON.parse(localStorage.getItem('userProfile')) || {};
+        localStorage.setItem('userProfile', JSON.stringify({ ...stored, ...updatedUser }));
+        setShowEditModal(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEditError(data.message || 'Failed to update profile.');
+      }
+    } catch (err) {
+      console.error('Profile update error:', err);
+      setEditError('Network error updating profile: ' + err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleUpdateCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setUpdatingCurrentLoc(true);
+    setCurrentLocToast(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const token = localStorage.getItem('token');
+        try {
+          const res = await fetch('http://localhost:5000/api/users/current-location', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              coordinates: [longitude, latitude] // GeoJSON order: [longitude, latitude]
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            setWorker(prev => ({
+              ...prev,
+              currentLocation: data.currentLocation
+            }));
+            setCurrentLocToast({
+              type: 'success',
+              message: 'Current location updated just now!'
+            });
+            const stored = JSON.parse(localStorage.getItem('userProfile')) || {};
+            localStorage.setItem('userProfile', JSON.stringify({
+              ...stored,
+              currentLocation: data.currentLocation
+            }));
+            setTimeout(() => setCurrentLocToast(null), 5000);
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            setCurrentLocToast({
+              type: 'error',
+              message: errData.message || 'Failed to update current location on server.'
+            });
+          }
+        } catch (err) {
+          console.error('Error updating current location:', err);
+          setCurrentLocToast({
+            type: 'error',
+            message: 'Network error updating current location: ' + err.message
+          });
+        } finally {
+          setUpdatingCurrentLoc(false);
+        }
+      },
+      (err) => {
+        let msg = 'Could not access GPS location.';
+        if (err.code === 1) msg = 'Location permission was denied by your browser.';
+        else if (err.code === 2) msg = 'Location position unavailable. Check device GPS.';
+        else if (err.code === 3) msg = 'Location request timed out.';
+        setCurrentLocToast({ type: 'error', message: msg });
+        setUpdatingCurrentLoc(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const targetWorkerId = id || currentUser.id || currentUser._id;
 
@@ -565,68 +1007,266 @@ export default function WorkerProfileView() {
       )}
 
       {/* Main Profile Header Card */}
-      <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 32px)', borderRadius: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '28px' }}>
-        <img 
-          src={worker.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=300&h=300'} 
-          alt={worker.name}
-          style={{ width: 'clamp(90px, 20vw, 130px)', height: 'clamp(90px, 20vw, 130px)', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--accent-light)', flexShrink: 0 }}
-        />
+      <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 32px)', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+          <div style={{ position: 'relative', width: 'clamp(90px, 20vw, 130px)', height: 'clamp(90px, 20vw, 130px)', flexShrink: 0 }}>
+            <img 
+              src={resolveAvatarUrl(worker.avatar, worker.name)} 
+              alt={worker.name}
+              onClick={() => { if (isOwnProfile) setShowAvatarModal(true); }}
+              title={isOwnProfile ? 'Click to change profile photo' : worker.name}
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                borderRadius: '50%', 
+                objectFit: 'cover', 
+                border: '3px solid var(--accent-light)', 
+                cursor: isOwnProfile ? 'pointer' : 'default',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.08)'
+              }}
+            />
+            {isOwnProfile && (
+              <button
+                type="button"
+                onClick={() => setShowAvatarModal(true)}
+                title="Change Profile Photo"
+                style={{
+                  position: 'absolute',
+                  bottom: '4px',
+                  right: '4px',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-primary)',
+                  color: '#fff',
+                  border: '3px solid #fff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <Camera size={17} />
+              </button>
+            )}
+          </div>
 
-        <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: 0 }}>{worker.name}</h1>
-              {isVerified && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--accent-light)', color: 'var(--accent-primary)', padding: '4px 10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem' }}>
-                  <ShieldCheck size={14} /> Verified Professional
-                </span>
+          <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h1 style={{ fontSize: '2rem', fontWeight: '800', margin: 0 }}>{worker.name}</h1>
+                  {isVerified && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--accent-light)', color: 'var(--accent-primary)', padding: '4px 10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem' }}>
+                      <ShieldCheck size={14} /> Verified Professional
+                    </span>
+                  )}
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: '4px 0 0 0', fontWeight: '600' }}>
+                  {worker.title || worker.skills?.[0] || 'Service Specialist'}
+                </p>
+                {worker.businessName && (
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.88rem', color: 'var(--accent-primary)', fontWeight: '700' }}>
+                    🏢 {worker.businessName}
+                  </p>
+                )}
+              </div>
+
+              {/* Edit Profile Button in Top-Right */}
+              {isOwnProfile && (
+                <button 
+                  onClick={() => handleOpenEditProfile('details')}
+                  className="btn-secondary" 
+                  style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    padding: '8px 16px', 
+                    fontSize: '0.88rem', 
+                    fontWeight: '600',
+                    borderRadius: '12px',
+                    border: '1px solid var(--accent-primary)',
+                    color: 'var(--accent-primary)',
+                    background: 'var(--accent-light)'
+                  }}
+                >
+                  <Edit3 size={15} /> Edit Profile
+                </button>
               )}
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: '4px 0 0 0', fontWeight: '600' }}>
-              {worker.title || worker.skills?.[0] || 'Service Specialist'}
-            </p>
-          </div>
 
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.9rem' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
-              <MapPin size={16} color="var(--accent-primary)" /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')} ({worker.serviceRadius || '15 km'} radius)
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: '700' }}>
-              <Star size={16} fill="#f59e0b" /> {worker.rating || 4.8} ({worker.reviewsCount || reviews.length} reviews)
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
-              <Briefcase size={16} color="var(--accent-primary)" /> {worker.experienceYears || 3} Years Experience
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(worker.skills || []).map(skill => (
-              <span key={skill} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '4px 12px', borderRadius: '8px', fontWeight: '500' }}>
-                {skill}
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '0.9rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                <MapPin size={16} color="var(--accent-primary)" /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')} ({worker.serviceRadius || '15 km'} radius)
               </span>
-            ))}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: '700' }}>
+                <Star size={16} fill="#f59e0b" /> {worker.rating || 4.8} ({worker.reviewsCount || reviews.length} reviews)
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                <Briefcase size={16} color="var(--accent-primary)" /> {worker.experienceYears || 3} Years Experience
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '0.84rem' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                <Zap size={13} color="var(--accent-primary)" /> Service Mode: {worker.serviceMode || 'Home Service'}
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                <DollarSign size={13} color="#10b981" /> Starting Price: ₹{worker.startingPrice !== undefined ? worker.startingPrice : (worker.hourlyRate || 500)} ({worker.pricingType || 'Hourly'})
+              </span>
+            </div>
+
+            {worker.bio && (
+              <div style={{ background: 'rgba(241, 245, 249, 0.6)', padding: '10px 14px', borderRadius: '12px', borderLeft: '3px solid var(--accent-primary)' }}>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  {worker.bio}
+                </p>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {(worker.skills || []).map(skill => (
+                <span key={skill} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '4px 12px', borderRadius: '8px', fontWeight: '500' }}>
+                  {skill}
+                </span>
+              ))}
+            </div>
+
+            {/* Book Service Action Button for Customer */}
+            {userRole !== 'worker' && (
+              <div style={{ marginTop: '8px' }}>
+                <button 
+                  onClick={() => {
+                    const token = localStorage.getItem('token');
+                    if (!token || token === 'null' || token === 'undefined') {
+                      alert('Please sign in as a customer to book a service.');
+                      navigate(`/login/customer?redirect=${encodeURIComponent(window.location.pathname)}`);
+                      return;
+                    }
+                    setShowBookingModal(true);
+                  }}
+                  className="btn-primary" 
+                  style={{ padding: '12px 28px', fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Calendar size={18} /> Book Service Now (₹{worker.hourlyRate || 500}/hr)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Location Management Section (Service Base Location & Current Physical Location) */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: '16px', 
+          paddingTop: '18px', 
+          borderTop: '1px solid var(--border-color)',
+          width: '100%'
+        }}>
+          {/* Base Service Location */}
+          <div style={{ 
+            background: 'var(--bg-secondary)', 
+            padding: '14px 18px', 
+            borderRadius: '16px', 
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <MapPin size={16} color="var(--accent-primary)" />
+                <span style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                  Service Location (Base)
+                </span>
+              </div>
+              <p style={{ margin: 0, fontWeight: '700', fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}
+              </p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                Base location visible to customers on NearFix discovery map ({worker.serviceRadius || '15 km'} radius).
+                {worker.location?.coordinates && (
+                  <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.76rem', marginTop: '2px' }}>
+                    GPS: [{worker.location.coordinates[1].toFixed(4)}, {worker.location.coordinates[0].toFixed(4)}]
+                  </span>
+                )}
+              </p>
+            </div>
+            {isOwnProfile && (
+              <div>
+                <button 
+                  onClick={() => handleOpenEditProfile('location')}
+                  className="btn-secondary" 
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                >
+                  <Edit3 size={14} /> Edit Location
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Book Service Action Button for Customer */}
-          {userRole !== 'worker' && (
-            <div style={{ marginTop: '12px' }}>
-              <button 
-                onClick={() => {
-                  const token = localStorage.getItem('token');
-                  if (!token || token === 'null' || token === 'undefined') {
-                    alert('Please sign in as a customer to book a service.');
-                    navigate(`/login/customer?redirect=${encodeURIComponent(window.location.pathname)}`);
-                    return;
-                  }
-                  setShowBookingModal(true);
-                }}
-                className="btn-primary" 
-                style={{ padding: '12px 28px', fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-              >
-                <Calendar size={18} /> Book Service Now (₹{worker.hourlyRate || 500}/hr)
-              </button>
+          {/* Current Physical Location */}
+          <div style={{ 
+            background: 'var(--bg-secondary)', 
+            padding: '14px 18px', 
+            borderRadius: '16px', 
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Navigation size={16} color="#2563eb" />
+                <span style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                  Current Physical Location
+                </span>
+              </div>
+              <p style={{ margin: 0, fontWeight: '700', fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                {formatRelativeTime(worker.currentLocation?.updatedAt)}
+              </p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                {worker.currentLocation?.coordinates 
+                  ? `Coordinates: (${worker.currentLocation.coordinates[1].toFixed(4)}, ${worker.currentLocation.coordinates[0].toFixed(4)}) • Used for active job dispatch & distance.`
+                  : 'Manual update only. Used for accepted bookings & route distance. Not a permanent public marker.'
+                }
+              </p>
+              {currentLocToast && (
+                <div style={{ 
+                  marginTop: '8px', 
+                  padding: '6px 10px', 
+                  borderRadius: '8px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: '600',
+                  background: currentLocToast.type === 'success' ? '#ecfdf5' : '#fef2f2',
+                  color: currentLocToast.type === 'success' ? '#059669' : '#dc2626',
+                  border: currentLocToast.type === 'success' ? '1px solid #a7f3d0' : '1px solid #fecaca'
+                }}>
+                  {currentLocToast.message}
+                </div>
+              )}
             </div>
-          )}
+            {isOwnProfile && (
+              <div>
+                <button 
+                  onClick={handleUpdateCurrentLocation}
+                  disabled={updatingCurrentLoc}
+                  className="btn-primary" 
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                >
+                  {updatingCurrentLoc ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
+                  {updatingCurrentLoc ? 'Detecting GPS...' : 'Update Current Location'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2050,6 +2690,655 @@ export default function WorkerProfileView() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Worker Profile Modal */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div 
+            className="glass-panel" 
+            style={{
+              width: '100%',
+              maxWidth: '720px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              borderRadius: '24px',
+              padding: 'clamp(20px, 3vw, 32px)',
+              background: '#ffffff',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              position: 'relative'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                  Edit Worker Profile
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  Update your professional details, services, and base service location.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Error Banner */}
+            {editError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fca5a5',
+                color: '#dc2626',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                marginBottom: '18px',
+                fontSize: '0.88rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle size={18} />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Identity Protection Notice */}
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '0.82rem',
+                color: 'var(--text-secondary)'
+              }}>
+                <Lock size={16} color="var(--accent-primary)" />
+                <span>
+                  <b>Protected Fields:</b> Account Role, Email, Rating, and KYC verification status are read-only and managed by administration.
+                </span>
+              </div>
+
+              {/* Grid 1: Name & Phone */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Full Name <span style={{ color: 'var(--error)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={60}
+                    value={editForm.name}
+                    onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                    placeholder="e.g. Rajesh Kumar"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Phone Number (10 Digits) <span style={{ color: 'var(--error)' }}>*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    required
+                    value={editForm.phone}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setEditForm(prev => ({ ...prev, phone: val }));
+                    }}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                    placeholder="e.g. 9876543210"
+                  />
+                </div>
+              </div>
+
+              {/* Grid 2: Title & Email (Read-only) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Worker Title / Headline
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={80}
+                    value={editForm.title}
+                    onChange={e => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                    placeholder="e.g. Master Electrician & Appliance Specialist"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Email Address (Verified)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="email"
+                      readOnly
+                      disabled
+                      value={worker?.email || ''}
+                      className="input-field"
+                      style={{ width: '100%', borderRadius: '10px', height: '42px', background: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+                    />
+                    <Lock size={14} color="#94a3b8" style={{ position: 'absolute', right: '12px', top: '14px' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid 3: Business Name & Experience */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Business Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    value={editForm.businessName}
+                    onChange={e => setEditForm(prev => ({ ...prev, businessName: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                    placeholder="e.g. Kumar Repairs & Co."
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Years of Experience
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="70"
+                    value={editForm.experienceYears}
+                    onChange={e => setEditForm(prev => ({ ...prev, experienceYears: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Grid 4: Service Mode, Pricing Type, Starting Price, Radius */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Service Mode
+                  </label>
+                  <select
+                    value={editForm.serviceMode}
+                    onChange={e => setEditForm(prev => ({ ...prev, serviceMode: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                  >
+                    <option value="Home Service">Home Service</option>
+                    <option value="Fixed Location">Fixed Location</option>
+                    <option value="Both">Both</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Pricing Type
+                  </label>
+                  <select
+                    value={editForm.pricingType}
+                    onChange={e => setEditForm(prev => ({ ...prev, pricingType: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                  >
+                    <option value="Hourly">Hourly</option>
+                    <option value="Fixed">Fixed</option>
+                    <option value="Per Visit">Per Visit</option>
+                    <option value="Per Session">Per Session</option>
+                    <option value="Per Project">Per Project</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Starting Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.startingPrice}
+                    onChange={e => setEditForm(prev => ({ ...prev, startingPrice: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                    Service Radius
+                  </label>
+                  <select
+                    value={editForm.serviceRadius}
+                    onChange={e => setEditForm(prev => ({ ...prev, serviceRadius: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                  >
+                    <option value="5 km">5 km</option>
+                    <option value="10 km">10 km</option>
+                    <option value="15 km">15 km</option>
+                    <option value="25 km">25 km</option>
+                    <option value="50 km">50 km</option>
+                    <option value="100 km">100 km</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Skills / Services Tag Manager */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                  Skills & Services
+                </label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Add a skill or service (e.g. Wiring, Pipe Fitting)..."
+                    value={skillInput}
+                    onChange={e => setSkillInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSkill();
+                      }
+                    }}
+                    className="input-field"
+                    style={{ flex: 1, borderRadius: '10px', height: '38px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSkill}
+                    className="btn-secondary"
+                    style={{ padding: '0 16px', height: '38px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '600' }}
+                  >
+                    Add
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minHeight: '32px' }}>
+                  {editForm.skills.map(skill => (
+                    <span
+                      key={skill}
+                      style={{
+                        background: 'var(--accent-light)',
+                        color: 'var(--accent-primary)',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '0.82rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(skill)}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--accent-primary)' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bio / About */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '700' }}>
+                    Bio / About
+                  </label>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {editForm.bio.length} / 1000 characters
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  maxLength={1000}
+                  value={editForm.bio}
+                  onChange={e => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                  className="input-field"
+                  style={{ width: '100%', borderRadius: '10px', fontSize: '0.88rem', lineHeight: '1.5' }}
+                  placeholder="Introduce your experience, specialties, and service guarantee..."
+                />
+              </div>
+
+              {/* SERVICE LOCATION SECTION */}
+              <div style={{ 
+                background: 'var(--bg-secondary)', 
+                borderRadius: '16px', 
+                padding: '16px', 
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <MapPin size={16} color="var(--accent-primary)" />
+                    <label style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                      Service Location (Base / Discovery Map Marker)
+                    </label>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    This is your base service center shown to customers on the NearFix discovery map.
+                  </p>
+                </div>
+
+                {/* Address Text Input */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>
+                    Human-Readable Address <span style={{ color: 'var(--error)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={200}
+                    value={editForm.address}
+                    onChange={e => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', height: '40px' }}
+                    placeholder="e.g. Mavoor Road, Near Bus Terminal, Kozhikode"
+                  />
+                </div>
+
+                {/* Location Action Buttons */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocationForService}
+                    disabled={detectingGpsInModal}
+                    className="btn-secondary"
+                    style={{ 
+                      padding: '8px 14px', 
+                      fontSize: '0.84rem', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    {detectingGpsInModal ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} color="#2563eb" />}
+                    {detectingGpsInModal ? 'Detecting GPS...' : 'Use Current Location'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMapInModal(!showMapInModal)}
+                    className="btn-secondary"
+                    style={{ 
+                      padding: '8px 14px', 
+                      fontSize: '0.84rem', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      borderRadius: '8px',
+                      background: showMapInModal ? 'var(--accent-light)' : undefined,
+                      borderColor: showMapInModal ? 'var(--accent-primary)' : undefined
+                    }}
+                  >
+                    <Compass size={14} color="var(--accent-primary)" />
+                    {showMapInModal ? 'Hide Map Picker' : 'Pick on Map'}
+                  </button>
+                </div>
+
+                {/* Leaflet Interactive Map Picker */}
+                {showMapInModal && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ 
+                      height: '240px', 
+                      width: '100%', 
+                      borderRadius: '12px', 
+                      overflow: 'hidden', 
+                      border: '2px solid var(--accent-light)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+                    }}>
+                      <MapContainer
+                        center={[editForm.locationCoords.lat, editForm.locationCoords.lng]}
+                        zoom={14}
+                        style={{ height: '100%', width: '100%' }}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <ServiceLocationPickerMap
+                          markerPos={editForm.locationCoords}
+                          onPositionChange={(newPos) => {
+                            setEditForm(prev => ({ ...prev, locationCoords: newPos }));
+                          }}
+                        />
+                      </MapContainer>
+                    </div>
+
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      marginTop: '8px', 
+                      fontSize: '0.78rem', 
+                      color: 'var(--text-secondary)' 
+                    }}>
+                      <span>
+                        💡 Click anywhere on map or drag the <b>"Service Location"</b> marker.
+                      </span>
+                      <span style={{ fontFamily: 'monospace', background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px', fontWeight: '600' }}>
+                        GeoJSON: [{editForm.locationCoords.lng.toFixed(4)}, {editForm.locationCoords.lat.toFixed(4)}]
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Form Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn-secondary"
+                  style={{ padding: '10px 22px', fontSize: '0.9rem', borderRadius: '10px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="btn-primary"
+                  style={{ padding: '10px 26px', fontSize: '0.9rem', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {savingProfile && <Loader2 size={16} className="animate-spin" />}
+                  {savingProfile ? 'Saving Changes...' : 'Save Profile'}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Profile Photo Modal for Worker */}
+      {showAvatarModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !uploadingAvatar) {
+              setShowAvatarModal(false);
+              setAvatarFile(null);
+              setAvatarPreview('');
+            }
+          }}
+        >
+          <div 
+            className="glass-panel" 
+            style={{ 
+              maxWidth: '440px', 
+              width: '100%', 
+              borderRadius: '24px', 
+              padding: '28px', 
+              background: '#ffffff', 
+              boxShadow: 'var(--shadow-xl)',
+              animation: 'modalFadeIn 0.25s ease'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Change Profile Photo</h3>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowAvatarModal(false);
+                  setAvatarFile(null);
+                  setAvatarPreview('');
+                }}
+                disabled={uploadingAvatar}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {avatarError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#ef4444',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginBottom: '16px',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{avatarError}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ 
+                width: '130px', 
+                height: '130px', 
+                borderRadius: '50%', 
+                overflow: 'hidden', 
+                border: '4px solid var(--accent-light)',
+                boxShadow: 'var(--shadow-md)',
+                background: 'var(--bg-tertiary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <img 
+                  src={avatarPreview || resolveAvatarUrl(worker.avatar, worker.name)} 
+                  alt="Avatar Preview" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+
+              <input 
+                type="file" 
+                ref={avatarInputRef} 
+                onChange={handleSelectAvatar}
+                accept="image/jpeg,image/png,image/webp" 
+                style={{ display: 'none' }} 
+              />
+
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                className="btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', fontSize: '0.9rem' }}
+              >
+                <Upload size={16} /> Choose Photo
+              </button>
+              
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Supported: JPG, PNG, WebP (Max 5 MB)
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button 
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowAvatarModal(false);
+                  setAvatarFile(null);
+                  setAvatarPreview('');
+                }}
+                disabled={uploadingAvatar}
+                style={{ padding: '10px 18px', borderRadius: '12px' }}
+              >
+                Cancel
+              </button>
+
+              <button 
+                type="button"
+                className="btn-primary"
+                onClick={handleSaveAvatar}
+                disabled={uploadingAvatar || !avatarFile}
+                style={{ padding: '10px 22px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
+                {uploadingAvatar && <Loader2 size={16} className="animate-spin" />}
+                {uploadingAvatar ? 'Uploading...' : 'Save Photo'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -48,6 +48,21 @@ const UserSchema = new Schema({
     }
   },
 
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: undefined
+    },
+    updatedAt: {
+      type: Date
+    }
+  },
+
   avatar: {
     type: String,
     default: ''
@@ -227,6 +242,7 @@ const UserSchema = new Schema({
 
 UserSchema.index({ location: '2dsphere' }, { sparse: true });
 UserSchema.index({ businessLocation: '2dsphere' }, { sparse: true });
+UserSchema.index({ currentLocation: '2dsphere' }, { sparse: true });
 
 UserSchema.pre('save', function () {
   if (this.businessLocation && (!this.businessLocation.coordinates || this.businessLocation.coordinates.length !== 2)) {
@@ -234,6 +250,9 @@ UserSchema.pre('save', function () {
   }
   if (this.location && (!this.location.coordinates || this.location.coordinates.length !== 2)) {
     this.location = undefined;
+  }
+  if (this.currentLocation && (!this.currentLocation.coordinates || this.currentLocation.coordinates.length !== 2)) {
+    this.currentLocation = undefined;
   }
 });
 

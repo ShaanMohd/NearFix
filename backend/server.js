@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 5000;
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const seedData = require('./seed');
+const User = require('./models/User');
 
 // Database Connection
 async function connectDatabase() {
@@ -26,22 +27,38 @@ async function connectDatabase() {
   if (process.env.MONGO_URI) {
     try {
       await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 3000 });
-      console.log('MongoDB Atlas Connected successfully');
+      console.log('MongoDB Connected successfully to:', process.env.MONGO_URI);
       connected = true;
-      await seedData();
+
+      // Seed initial data ONLY if database is brand new / completely empty
+      try {
+        const userCount = await User.countDocuments();
+        if (userCount === 0) {
+          console.log('Empty database detected. Initializing default demo data...');
+          await seedData({ force: false });
+        } else {
+          console.log(`Persistent database active with ${userCount} existing users. Preserving all records.`);
+        }
+      } catch (checkErr) {
+        console.error('Error checking existing data count:', checkErr);
+      }
     } catch (err) {
-      console.log('MongoDB Atlas connection failed:', err.message);
+      console.log('MongoDB connection failed:', err.message);
     }
   }
 
   if (!connected) {
     try {
-      console.log('Initializing local MongoMemoryServer fallback...');
+      console.warn('\n⚠️  WARNING: Could not connect to persistent MongoDB at process.env.MONGO_URI.');
+      console.warn('⚠️  Falling back to temporary in-memory MongoMemoryServer.');
+      console.warn('⚠️  Any data created will NOT be saved to disk across restarts.');
+      console.warn('⚠️  Make sure MongoDB is running locally at mongodb://127.0.0.1:27017 or check your MONGO_URI in .env\n');
+
       const mongoServer = await MongoMemoryServer.create();
       const mongoUri = mongoServer.getUri();
       await mongoose.connect(mongoUri);
-      console.log('Connected to local MongoMemoryServer:', mongoUri);
-      await seedData();
+      console.log('Connected to temporary MongoMemoryServer:', mongoUri);
+      await seedData({ force: true });
     } catch (fallbackErr) {
       console.error('Failed to initialize MongoMemoryServer fallback:', fallbackErr);
     }
@@ -62,6 +79,7 @@ app.get('/api', (req, res) => {
 // Active Core Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/workers', require('./routes/userRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));

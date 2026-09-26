@@ -77,8 +77,12 @@ export default function CustomerLoginView() {
     setSuccessMessage(null);
 
     // Validate Password Complexity
+    if (formData.password.length < 8) {
+      setError(`Password must be at least 8 characters long (currently ${formData.password.length} characters). Please add ${8 - formData.password.length} more character${8 - formData.password.length === 1 ? '' : 's'}.`);
+      return;
+    }
     if (!isPasswordValid) {
-      setError('Password must be at least 8 characters long and contain at least one letter, one number, and one special character.');
+      setError('Password must contain at least one letter, one number, and one special character.');
       return;
     }
 
@@ -471,8 +475,14 @@ export default function CustomerLoginView() {
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '10px 12px', marginTop: '8px', fontSize: '0.78rem' }}>
                   <div style={{ color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '500' }}>Password requirements:</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                    <span style={{ color: passwordCriteria.minLength ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {passwordCriteria.minLength ? '✓' : '•'} 8+ characters
+                    <span style={{ 
+                      color: passwordCriteria.minLength ? 'var(--success)' : (formData.password ? '#f59e0b' : 'var(--text-secondary)'), 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      fontWeight: (formData.password && !passwordCriteria.minLength) ? '600' : 'normal'
+                    }}>
+                      {passwordCriteria.minLength ? '✓' : '•'} 8+ characters {formData.password.length > 0 ? `(${formData.password.length}/8 min)` : ''}
                     </span>
                     <span style={{ color: passwordCriteria.hasLetter ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {passwordCriteria.hasLetter ? '✓' : '•'} At least 1 letter
@@ -523,9 +533,9 @@ export default function CustomerLoginView() {
 
               <button 
                 type="submit" 
-                disabled={loading || !isPasswordValid || !isPasswordMatch} 
+                disabled={loading} 
                 className="btn-primary" 
-                style={{ marginTop: '6px', width: '100%', opacity: (!isPasswordValid || !isPasswordMatch) ? 0.7 : 1 }}
+                style={{ marginTop: '6px', width: '100%', opacity: loading ? 0.7 : 1 }}
               >
                 {loading ? <Loader2 size={20} className="animate-spin" /> : 'Continue to Email Verification'}
               </button>

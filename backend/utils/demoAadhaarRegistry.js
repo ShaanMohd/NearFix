@@ -49,6 +49,41 @@ const DEMO_AADHAAR_REGISTRY = [
     name: 'Demo Service Worker',
     phone: '9895012345',
     isActive: true
+  },
+  {
+    aadhaarNumber: '222233334444',
+    aadhaarLast4: '4444',
+    name: 'Rahul Sharma',
+    phone: '9876500001',
+    isActive: true
+  },
+  {
+    aadhaarNumber: '333344445555',
+    aadhaarLast4: '5555',
+    name: 'Suresh Kumar',
+    phone: '9876500002',
+    isActive: true
+  },
+  {
+    aadhaarNumber: '777788889999',
+    aadhaarLast4: '9999',
+    name: 'Anjali Ramesh',
+    phone: '9876500003',
+    isActive: true
+  },
+  {
+    aadhaarNumber: '888899990000',
+    aadhaarLast4: '0000',
+    name: 'Pradeep Das',
+    phone: '9876500004',
+    isActive: true
+  },
+  {
+    aadhaarNumber: '666677778888',
+    aadhaarLast4: '8888',
+    name: 'Vijay Mohan',
+    phone: '9876500005',
+    isActive: true
   }
 ].map(item => ({
   ...item,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -14,6 +14,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import { resolveAvatarUrl } from '../utils/avatar';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -21,10 +22,23 @@ export default function AdminLayout() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const adminProfile = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  const [adminProfile, setAdminProfile] = useState(() => {
+    return JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const updated = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+      setAdminProfile(updated);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const adminName = adminProfile.name || 'Admin User';
   const adminEmail = adminProfile.email || 'admin@nearfix.com';
-  const adminAvatar = adminProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150';
+  const adminAvatar = resolveAvatarUrl(adminProfile.avatar, adminName);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

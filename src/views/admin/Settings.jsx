@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   User, 
   Lock, 
@@ -7,15 +7,29 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Loader2, 
-  Save 
+  Save,
+  Camera,
+  Upload,
+  X
 } from 'lucide-react';
+import { resolveAvatarUrl } from '../../utils/avatar';
 
 export default function Settings() {
-  const adminProfile = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  const [adminProfile, setAdminProfile] = useState(() => {
+    return JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  });
 
   const [name, setName] = useState(adminProfile.name || 'Platform Admin');
-  const [email, setEmail] = useState(adminProfile.email || 'admin@nearfix.com');
-  const [avatar, setAvatar] = useState(adminProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200');
+  const [email] = useState(adminProfile.email || 'admin@nearfix.com');
+  const [avatar, setAvatar] = useState(adminProfile.avatar || '');
+
+  // Avatar Modal State
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef(null);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,8 +44,87 @@ export default function Settings() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
+  const showToast = (type, text) => {
+    setToastMessage({ type, text });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Avatar Selection & Validation
+  const handleSelectAvatar = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setAvatarError('');
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      setAvatarError('Only JPG, PNG and WebP images are allowed.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Profile image must be smaller than 5 MB.');
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveAvatar = async (e) => {
+    e.preventDefault();
+    if (!avatarFile) {
+      setAvatarError('Please choose a photo from your device first.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setAvatarError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users/me/avatar', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setAvatar(data.avatar);
+        const updated = { ...adminProfile, avatar: data.avatar };
+        setAdminProfile(updated);
+        localStorage.setItem('adminProfile', JSON.stringify(updated));
+        localStorage.setItem('userProfile', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+
+        setShowAvatarModal(false);
+        setAvatarFile(null);
+        setAvatarPreview('');
+        showToast('success', 'Admin profile photo updated successfully!');
+      } else {
+        setAvatarError(data.message || 'Failed to upload profile photo.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAvatarError('Network error uploading photo: ' + err.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleProfileSave = async (e) => {
     e.preventDefault();
+    const cleanName = name.trim().replace(/\s+/g, ' ');
+    if (cleanName.length < 2 || cleanName.length > 60) {
+      showToast('error', 'Administrator Name must be between 2 and 60 characters.');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/admin/settings/profile', {
@@ -40,17 +133,21 @@ export default function Settings() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ name, email, avatar })
+        body: JSON.stringify({ name: cleanName, avatar })
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to update profile');
 
-      localStorage.setItem('adminProfile', JSON.stringify(data.user));
-      localStorage.setItem('userProfile', JSON.stringify(data.user));
-      setToastMessage({ type: 'success', text: 'Admin profile updated successfully!' });
+      const updated = { ...adminProfile, ...data.user };
+      setAdminProfile(updated);
+      localStorage.setItem('adminProfile', JSON.stringify(updated));
+      localStorage.setItem('userProfile', JSON.stringify(updated));
+      window.dispatchEvent(new Event('storage'));
+
+      showToast('success', 'Admin profile updated successfully!');
     } catch (err) {
-      setToastMessage({ type: 'error', text: err.message });
+      showToast('error', err.message);
     } finally {
       setLoading(false);
     }
@@ -58,19 +155,40 @@ export default function Settings() {
 
   const handlePasswordSave = async (e) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setToastMessage({ type: 'error', text: 'New passwords do not match' });
+    if (!currentPassword || !newPassword) {
+      showToast('error', 'Please fill in both current and new passwords.');
       return;
     }
+
+    if (newPassword !== confirmPassword) {
+      showToast('error', 'New passwords do not match.');
+      return;
+    }
+
+    if (newPassword.length < 8 || newPassword.length > 72) {
+      showToast('error', 'Password must be between 8 and 72 characters long.');
+      return;
+    }
+
+    const hasUpper = /[A-Z]/.test(newPassword);
+    const hasLower = /[a-z]/.test(newPassword);
+    const hasNumber = /\d/.test(newPassword);
+    const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(newPassword);
+
+    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+      showToast('error', 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.');
+      return;
+    }
+
     setPasswordLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/admin/settings/password', {
+      const res = await fetch('http://localhost:5000/api/users/me/password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ currentPassword, newPassword })
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
       });
 
       const data = await res.json();
@@ -79,9 +197,9 @@ export default function Settings() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setToastMessage({ type: 'success', text: 'Password changed successfully!' });
+      showToast('success', 'Password changed successfully!');
     } catch (err) {
-      setToastMessage({ type: 'error', text: err.message });
+      showToast('error', err.message);
     } finally {
       setPasswordLoading(false);
     }
@@ -132,20 +250,72 @@ export default function Settings() {
         </div>
 
         <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <img 
-              src={avatar} 
-              alt="Admin Avatar" 
-              style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)', flexShrink: 0 }}
-            />
-            <div style={{ flex: 1, minWidth: 'min(100%, 220px)' }}>
-              <label className="input-label">Avatar Photo URL</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={avatar} 
-                onChange={e => setAvatar(e.target.value)} 
+          
+          {/* Avatar Upload Container */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '22px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+              <img 
+                src={resolveAvatarUrl(avatar, name)} 
+                alt={name}
+                onClick={() => setShowAvatarModal(true)}
+                title="Click to change profile photo"
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  borderRadius: '50%', 
+                  objectFit: 'cover', 
+                  border: '3px solid var(--accent-light)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  cursor: 'pointer'
+                }}
               />
+              <button
+                type="button"
+                onClick={() => setShowAvatarModal(true)}
+                title="Change Photo"
+                style={{
+                  position: 'absolute',
+                  bottom: '0',
+                  right: '0',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-primary)',
+                  color: '#fff',
+                  border: '2px solid #fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                }}
+              >
+                <Camera size={14} />
+              </button>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarModal(true)}
+                  className="btn-secondary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    borderRadius: '10px'
+                  }}
+                >
+                  <Camera size={15} /> Change Profile Photo
+                </button>
+              </div>
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                JPG, PNG or WebP up to 5 MB. Updates header and profile immediately.
+              </p>
             </div>
           </div>
 
@@ -157,19 +327,33 @@ export default function Settings() {
                 className="input-field" 
                 value={name} 
                 onChange={e => setName(e.target.value)} 
+                minLength={2}
+                maxLength={60}
                 required 
               />
             </div>
 
             <div>
-              <label className="input-label">Email Address</label>
+              <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Email Address</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '500' }}>Read-only</span>
+              </label>
               <input 
                 type="email" 
                 className="input-field" 
                 value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                required 
+                readOnly
+                disabled
+                style={{ 
+                  background: 'var(--bg-tertiary)', 
+                  cursor: 'not-allowed', 
+                  color: 'var(--text-secondary)',
+                  opacity: 0.85
+                }}
               />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Primary administrator email address is fixed for security.
+              </span>
             </div>
           </div>
 
@@ -186,9 +370,9 @@ export default function Settings() {
         </form>
       </div>
 
-      {/* Security / Password Change */}
+      {/* Security & Authentication */}
       <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 32px)', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', color: 'var(--accent-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', color: 'var(--accent-primary)' }}>
           <Lock size={22} />
           <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>
             Security & Authentication
@@ -218,8 +402,12 @@ export default function Settings() {
                 value={newPassword} 
                 onChange={e => setNewPassword(e.target.value)} 
                 required 
-                minLength={6}
+                minLength={8}
+                maxLength={72}
               />
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                Min 8 chars with uppercase, lowercase, number & special symbol.
+              </span>
             </div>
 
             <div>
@@ -231,7 +419,8 @@ export default function Settings() {
                 value={confirmPassword} 
                 onChange={e => setConfirmPassword(e.target.value)} 
                 required 
-                minLength={6}
+                minLength={8}
+                maxLength={72}
               />
             </div>
           </div>
@@ -265,7 +454,7 @@ export default function Settings() {
               checked={notifyVerification} 
               onChange={e => {
                 setNotifyVerification(e.target.checked);
-                setToastMessage({ type: 'success', text: 'Notification preference saved!' });
+                showToast('success', 'Notification preference saved!');
               }}
               style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)' }}
             />
@@ -281,7 +470,7 @@ export default function Settings() {
               checked={notifyComplaint} 
               onChange={e => {
                 setNotifyComplaint(e.target.checked);
-                setToastMessage({ type: 'success', text: 'Notification preference saved!' });
+                showToast('success', 'Notification preference saved!');
               }}
               style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)' }}
             />
@@ -292,6 +481,146 @@ export default function Settings() {
           </label>
         </div>
       </div>
+
+      {/* Change Profile Photo Modal */}
+      {showAvatarModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !uploadingAvatar) {
+              setShowAvatarModal(false);
+              setAvatarFile(null);
+              setAvatarPreview('');
+            }
+          }}
+        >
+          <div 
+            className="glass-panel" 
+            style={{ 
+              maxWidth: '440px', 
+              width: '100%', 
+              borderRadius: '24px', 
+              padding: '28px', 
+              background: '#ffffff', 
+              boxShadow: 'var(--shadow-xl)',
+              animation: 'modalFadeIn 0.25s ease'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Change Profile Photo</h3>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowAvatarModal(false);
+                  setAvatarFile(null);
+                  setAvatarPreview('');
+                }}
+                disabled={uploadingAvatar}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {avatarError && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#ef4444',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginBottom: '16px',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{avatarError}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ 
+                width: '130px', 
+                height: '130px', 
+                borderRadius: '50%', 
+                overflow: 'hidden', 
+                border: '4px solid var(--accent-light)',
+                boxShadow: 'var(--shadow-md)',
+                background: 'var(--bg-tertiary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <img 
+                  src={avatarPreview || resolveAvatarUrl(avatar, name)} 
+                  alt="Avatar Preview" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleSelectAvatar}
+                accept="image/jpeg,image/png,image/webp" 
+                style={{ display: 'none' }} 
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', fontSize: '0.9rem' }}
+              >
+                <Upload size={16} /> Choose Photo
+              </button>
+              
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Supported: JPG, PNG, WebP (Max 5 MB)
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button 
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setShowAvatarModal(false);
+                  setAvatarFile(null);
+                  setAvatarPreview('');
+                }}
+                disabled={uploadingAvatar}
+                style={{ padding: '10px 18px', borderRadius: '12px' }}
+              >
+                Cancel
+              </button>
+
+              <button 
+                type="button"
+                className="btn-primary"
+                onClick={handleSaveAvatar}
+                disabled={uploadingAvatar || !avatarFile}
+                style={{ padding: '10px 22px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              >
+                {uploadingAvatar && <Loader2 size={16} className="animate-spin" />}
+                {uploadingAvatar ? 'Uploading...' : 'Save Photo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
