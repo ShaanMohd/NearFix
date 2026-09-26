@@ -9,7 +9,19 @@ const auth = require('../middleware/authMiddleware');
 // @desc    Customer creates a new booking (Normal or Emergency)
 router.post('/', auth, async (req, res) => {
   try {
-    const { workerId, serviceType, description, date, time, location, isEmergency, serviceCharge, emergencyCharge } = req.body;
+    const { 
+      workerId, 
+      serviceType, 
+      description, 
+      date, 
+      time, 
+      location, 
+      serviceAddress, 
+      customerLocation, 
+      isEmergency, 
+      serviceCharge, 
+      emergencyCharge 
+    } = req.body;
 
     const worker = await User.findById(workerId);
     if (!worker) {
@@ -20,6 +32,43 @@ router.post('/', auth, async (req, res) => {
     const eCharge = isEmergency ? (Number(emergencyCharge) || 150) : 0;
     const totalAmount = sCharge + eCharge;
 
+    let formattedCustomerLocation = undefined;
+    if (customerLocation && Array.isArray(customerLocation.coordinates) && customerLocation.coordinates.length === 2) {
+      const lng = Number(customerLocation.coordinates[0]);
+      const lat = Number(customerLocation.coordinates[1]);
+      if (!isNaN(lng) && !isNaN(lat)) {
+        formattedCustomerLocation = {
+          type: 'Point',
+          coordinates: [lng, lat]
+        };
+      }
+    }
+
+    // Fallback: extract GPS coordinates from location or serviceAddress text if not supplied as an object
+    if (!formattedCustomerLocation) {
+      const combinedText = `${serviceAddress || ''} ${location || ''}`;
+      const gpsMatch = combinedText.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+      if (gpsMatch) {
+        const val1 = Number(gpsMatch[1]);
+        const val2 = Number(gpsMatch[2]);
+        let lat = val1;
+        let lng = val2;
+        // In India longitude is typically 68-98 and latitude is 8-37
+        if (val1 > 50 && val2 < 50) {
+          lng = val1;
+          lat = val2;
+        }
+        if (!isNaN(lat) && !isNaN(lng)) {
+          formattedCustomerLocation = {
+            type: 'Point',
+            coordinates: [lng, lat]
+          };
+        }
+      }
+    }
+
+    const resolvedAddress = serviceAddress || location || (formattedCustomerLocation ? `GPS Location (${formattedCustomerLocation.coordinates[1].toFixed(4)}, ${formattedCustomerLocation.coordinates[0].toFixed(4)})` : 'Customer Address');
+
     const newBooking = new JobRequest({
       customerId: req.user.userId,
       workerId,
@@ -27,7 +76,9 @@ router.post('/', auth, async (req, res) => {
       description: description || '',
       date: date || 'Today',
       time: time || (isEmergency ? 'ASAP' : '10:00 AM'),
-      location: location || 'Customer Address',
+      location: resolvedAddress,
+      serviceAddress: resolvedAddress,
+      customerLocation: formattedCustomerLocation,
       isEmergency: !!isEmergency,
       serviceCharge: sCharge,
       emergencyCharge: eCharge,
@@ -40,7 +91,7 @@ router.post('/', auth, async (req, res) => {
     // Create Notification for the worker
     const customerUser = await User.findById(req.user.userId);
     const customerName = customerUser ? customerUser.name : 'A customer';
-    const notifType = isEmergency ? 'EMERGENCY_BOOKING_REQUEST' : 'NORMAL_BOOKING_REQUEST';
+    const notifType = isEmergency ? 'EMERGENCY_BOOKING_REQUEST' : 'BOOKING_REQUEST';
     const notifMsg = isEmergency 
       ? `🚨 EMERGENCY REQUEST: ${customerName} booked urgent service for ${savedBooking.serviceType} (ASAP)`
       : `📅 New Booking Request from ${customerName} for ${savedBooking.serviceType} on ${savedBooking.date}`;
@@ -53,13 +104,13 @@ router.post('/', auth, async (req, res) => {
     });
 
     const populatedBooking = await JobRequest.findById(savedBooking._id)
-      .populate('customerId', 'name email phone avatar location')
+      .populate('customerId', 'name email phone avatar location address')
       .populate('workerId', 'name email phone avatar title skills hourlyRate');
 
     res.status(201).json(populatedBooking);
   } catch (err) {
     console.error('Error creating booking:', err.message);
-    res.status(500).json({ message: 'Server Error creating booking' });
+    res.status(500).json({ message: 'Server Error creating booking: ' + err.message });
   }
 });
 
@@ -67,13 +118,13 @@ router.post('/', auth, async (req, res) => {
 // @desc    Get all bookings for logged-in user (as customer or worker)
 router.get('/', auth, async (req, res) => {
   try {
-    const asCustomer = req.query.asCustomer === 'true' || req.user.role === 'customer';
-    const query = asCustomer 
-      ? { customerId: req.user.userId }
-      : { workerId: req.user.userId };
+    const asWorker = req.query.asWorker === 'true' || (req.user.role === 'worker' && req.query.asCustomer !== 'true');
+    const query = asWorker 
+      ? { workerId: req.user.userId }
+      : { customerId: req.user.userId };
 
     const jobs = await JobRequest.find(query)
-      .populate('customerId', 'name email phone avatar location')
+      .populate('customerId', 'name email phone avatar location address')
       .populate('workerId', 'name email phone avatar title skills hourlyRate rating reviewsCount')
       .sort({ isEmergency: -1, createdAt: -1 });
 

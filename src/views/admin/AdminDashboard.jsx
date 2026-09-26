@@ -133,7 +133,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* 4 Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px' }}>
         
         {/* Card 1: Pending Verification */}
         <div 
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Grid: Pending KYC + Recent Complaints & Timeline */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '28px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '24px' }}>
         
         {/* SECTION: Pending Worker Verification */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
@@ -312,6 +312,8 @@ export default function AdminDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
                     padding: '14px 16px',
                     borderRadius: '14px',
                     background: 'var(--bg-primary)',
@@ -406,6 +408,8 @@ export default function AdminDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
                     padding: '14px 16px',
                     borderRadius: '14px',
                     background: 'var(--bg-primary)',

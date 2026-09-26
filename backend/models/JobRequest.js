@@ -1,24 +1,110 @@
 const mongoose = require('mongoose');
 
 const JobRequestSchema = new mongoose.Schema({
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  workerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  serviceType: { type: String, required: true },
-  description: { type: String },
-  date: { type: String, default: 'Today' },
-  time: { type: String, default: 'ASAP' },
-  location: { type: String, default: 'Customer Location' },
-  status: { 
-    type: String, 
-    enum: ['Pending', 'Accepted', 'Rejected', 'Completed', 'Cancelled'], 
-    default: 'Pending' 
+
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  isEmergency: { type: Boolean, default: false },
-  serviceCharge: { type: Number, default: 500 },
-  emergencyCharge: { type: Number, default: 0 },
-  totalAmount: { type: Number, default: 500 },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+
+  workerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+
+  serviceType: {
+    type: String,
+    required: true
+  },
+
+  serviceMode: {
+    type: String,
+    enum: ['Home Service', 'Visit Provider'],
+    default: 'Home Service'
+  },
+
+  description: {
+    type: String,
+    default: ''
+  },
+
+  date: {
+    type: String,
+    default: 'Today'
+  },
+
+  time: {
+    type: String,
+    default: 'ASAP'
+  },
+
+  location: {
+    type: String,
+    default: ''
+  },
+
+  serviceAddress: {
+    type: String,
+    default: ''
+  },
+
+  customerLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: [Number]
+  },
+
+  status: {
+    type: String,
+    enum: [
+      'Pending',
+      'Accepted',
+      'On The Way',
+      'Arrived',
+      'In Progress',
+      'Completed',
+      'Rejected',
+      'Cancelled'
+    ],
+    default: 'Pending'
+  },
+
+  isEmergency: {
+    type: Boolean,
+    default: false
+  },
+
+  serviceCharge: {
+    type: Number,
+    default: 0
+  },
+
+  emergencyCharge: {
+    type: Number,
+    default: 0
+  },
+
+  totalAmount: {
+    type: Number,
+    default: 0
+  },
+
+  workerNote: {
+    type: String,
+    default: ''
+  },
+
+  completedAt: {
+    type: Date
+  }
+
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model('JobRequest', JobRequestSchema);
+module.exports = mongoose.model('JobRequest', JobRequestSchema);

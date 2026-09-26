@@ -31,31 +31,31 @@ export default function WorkerCard({ worker }) {
         e.currentTarget.style.borderColor = 'var(--border-glass)';
       }}
     >
-      <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
         <img 
           src={worker.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=150&h=150'} 
           alt={worker.name} 
-          style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)' }}
+          style={{ width: '54px', height: '54px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)', flexShrink: 0 }}
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{worker.name}</span>
+        <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+          <h3 style={{ fontSize: '1.1rem', margin: 0, fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{worker.name}</span>
             {worker.verificationStatus === 'Verified' && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: 'var(--accent-light)', color: 'var(--accent-primary)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '6px', fontWeight: '700' }}>
                 <ShieldCheck size={12} /> Verified
               </span>
             )}
           </h3>
-          <p style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+          <p style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.84rem', margin: '3px 0 0 0' }}>
             <Briefcase size={13} /> {worker.title || worker.skills?.[0] || 'Service Professional'}
           </p>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '1.1rem' }}>
+        <div style={{ textAlign: 'right', marginLeft: 'auto', flexShrink: 0 }}>
+          <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '1.05rem' }}>
             ₹{worker.hourlyRate || 500}
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>/hr</span>
           </div>
-          <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.8rem', justifyContent: 'flex-end', marginTop: '2px' }}>
+          <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.78rem', justifyContent: 'flex-end', marginTop: '2px' }}>
             <MapPin size={12} /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}
           </div>
         </div>

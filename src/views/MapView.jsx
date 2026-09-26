@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MapComponent from '../components/MapComponent';
 import { Loader2 } from 'lucide-react';
 
 export default function MapView() {
+  const navigate = useNavigate();
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      navigate('/login/customer?redirect=/app/map', { replace: true });
+      return;
+    }
+
     fetch('http://localhost:5000/api/users/workers')
       .then(res => {
         if (!res.ok) {
@@ -35,7 +43,8 @@ export default function MapView() {
     <div
       style={{
         width: '100%',
-        height: 'calc(100vh - 110px)',
+        height: 'calc(100dvh - 140px)',
+        minHeight: '380px',
         position: 'relative'
       }}
     >

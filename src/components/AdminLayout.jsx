@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,18 +10,35 @@ import {
   Bell, 
   CheckCircle2, 
   Search,
-  ExternalLink
+  ExternalLink,
+  Menu,
+  X
 } from 'lucide-react';
+import { resolveAvatarUrl } from '../utils/avatar';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const adminProfile = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  const [adminProfile, setAdminProfile] = useState(() => {
+    return JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const updated = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
+      setAdminProfile(updated);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const adminName = adminProfile.name || 'Admin User';
   const adminEmail = adminProfile.email || 'admin@nearfix.com';
-  const adminAvatar = adminProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150';
+  const adminAvatar = resolveAvatarUrl(adminProfile.avatar, adminName);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -38,6 +55,11 @@ export default function AdminLayout() {
     { path: '/admin/workers', icon: Users, label: 'Workers' },
     { path: '/admin/settings', icon: Settings, label: 'Settings' }
   ];
+
+  const handleNav = (path) => {
+    navigate(path);
+    setMobileMenuOpen(false);
+  };
 
   return (
     <div className="layout-container">
@@ -127,30 +149,52 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100vh', overflow: 'hidden' }}>
+      <main className="main-content">
         {/* Top Header */}
         <header 
           style={{ 
             background: '#ffffff', 
             borderBottom: '1px solid var(--border-glass)', 
-            padding: '16px 32px', 
+            padding: '12px 20px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            minHeight: '70px',
+            minHeight: '64px',
             boxShadow: 'var(--shadow-sm)',
-            zIndex: 10
+            zIndex: 30,
+            gap: '12px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h2 className="heading-gradient" style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>NearFix</h2>
-            <div style={{ height: '20px', width: '1px', background: 'var(--border-glass)' }}></div>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
-              Safety & Verification Portal
-            </span>
+          {/* Left: Mobile hamburger & Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="mobile-header-menu-btn"
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-glass)',
+                padding: '8px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                display: 'none',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h2 className="heading-gradient" style={{ margin: 0, fontSize: '1.35rem', fontWeight: '800' }}>NearFix</h2>
+              <span style={{ fontSize: '0.68rem', fontWeight: '800', letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent-primary)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                Admin
+              </span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          {/* Right: Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button 
@@ -158,8 +202,8 @@ export default function AdminLayout() {
                 style={{ 
                   background: 'var(--bg-tertiary)', 
                   border: '1px solid var(--border-glass)', 
-                  width: '40px', 
-                  height: '40px', 
+                  width: '38px', 
+                  height: '38px', 
                   borderRadius: '10px', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -169,45 +213,41 @@ export default function AdminLayout() {
                   position: 'relative'
                 }}
               >
-                <Bell size={18} />
-                <span style={{ position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px', background: 'var(--error)', borderRadius: '50%' }}></span>
+                <Bell size={17} />
+                <span style={{ position: 'absolute', top: '7px', right: '7px', width: '8px', height: '8px', background: 'var(--error)', borderRadius: '50%' }}></span>
               </button>
 
               {notificationsOpen && (
-                <div className="glass-panel" style={{ position: 'absolute', right: 0, top: '48px', width: '300px', padding: '16px', zIndex: 100, boxShadow: 'var(--shadow-lg)', background: '#ffffff', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>Admin Alerts</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: '600' }}>3 New</span>
+                <div className="glass-panel" style={{ position: 'absolute', right: 0, top: '48px', width: '280px', padding: '14px', zIndex: 100, boxShadow: 'var(--shadow-lg)', background: '#ffffff', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>Admin Alerts</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: '600' }}>3 New</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-                    <div style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px', color: 'var(--text-primary)' }}>
-                      <strong>Rahul V.</strong> submitted KYC documents
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
+                    <div style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                      <strong>Rahul V.</strong> submitted KYC docs
                     </div>
-                    <div style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px', color: 'var(--text-primary)' }}>
-                      New complaint ticket <strong>#CMP-1049</strong> received
-                    </div>
-                    <div style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px', color: 'var(--text-primary)' }}>
-                      <strong>Ananth K.</strong> submitted Plumber application
+                    <div style={{ padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                      New complaint ticket <strong>#CMP-1049</strong>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Admin Avatar and Name */}
+            {/* Admin Avatar */}
             <div 
               onClick={() => navigate('/admin/settings')} 
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '4px 8px', borderRadius: '10px', transition: 'background 0.2s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 6px', borderRadius: '10px' }}
             >
               <img 
                 src={adminAvatar} 
                 alt={adminName} 
-                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)' }} 
+                style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)' }} 
               />
-              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.2 }}>{adminName}</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Administrator</span>
-              </div>
+              <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', display: 'none' }} className="desktop-header-actions">
+                {adminName}
+              </span>
             </div>
 
             {/* Logout icon */}
@@ -221,17 +261,103 @@ export default function AdminLayout() {
                 cursor: 'pointer', 
                 display: 'flex', 
                 alignItems: 'center', 
-                padding: '8px',
+                padding: '6px',
                 borderRadius: '8px'
               }}
             >
-              <LogOut size={20} />
+              <LogOut size={18} />
             </button>
           </div>
         </header>
 
+        {/* Mobile Slide-down Drawer Menu for Admin */}
+        {mobileMenuOpen && (
+          <div 
+            className="glass-panel"
+            style={{ 
+              position: 'fixed', 
+              top: '64px', 
+              left: 0, 
+              right: 0, 
+              background: '#ffffff', 
+              borderBottom: '1px solid var(--border-glass)', 
+              boxShadow: 'var(--shadow-lg)', 
+              zIndex: 99, 
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              animation: 'slideUp 0.25s ease-out'
+            }}
+          >
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname.startsWith(item.path);
+              return (
+                <div
+                  key={item.path}
+                  onClick={() => handleNav(item.path)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    background: isActive ? 'var(--accent-light)' : 'var(--bg-tertiary)',
+                    color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)',
+                    fontWeight: isActive ? '700' : '600',
+                    fontSize: '0.92rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-glass)' }}>
+              <button
+                onClick={() => handleNav('/app')}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-glass)',
+                  background: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                Switch to App <ExternalLink size={14} />
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #fee2e2',
+                  background: '#fef2f2',
+                  color: '#ef4444',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Scrollable Main Admin Content */}
-        <div className="content-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+        <div className="content-scroll">
           <Outlet />
         </div>
       </main>

@@ -342,6 +342,16 @@ router.put('/settings/profile', auth, admin, async (req, res) => {
   }
 });
 
+function isValidPassword(password) {
+  if (!password || typeof password !== 'string') return false;
+  if (password.length < 8 || password.length > 72) return false;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(password);
+  return hasUpper && hasLower && hasNumber && hasSpecial;
+}
+
 // @route   PUT /api/admin/settings/password
 // @desc    Change admin password
 router.put('/settings/password', auth, admin, async (req, res) => {
@@ -352,6 +362,12 @@ router.put('/settings/password', auth, admin, async (req, res) => {
 
     const isMatch = await bcrypt.compare(currentPassword, adminUser.password);
     if (!isMatch) return res.status(400).json({ message: 'Incorrect current password' });
+
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must be between 8 and 72 characters and contain at least one uppercase letter, one lowercase letter, one number, and one special character.'
+      });
+    }
 
     const salt = await bcrypt.genSalt(10);
     adminUser.password = await bcrypt.hash(newPassword, salt);

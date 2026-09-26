@@ -9,6 +9,7 @@ import {
   Briefcase, 
   Clock, 
   LogOut,
+  LogIn,
   ShieldCheck
 } from 'lucide-react';
 
@@ -16,6 +17,8 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const token = localStorage.getItem('token');
+  const isLoggedIn = Boolean(token && token !== 'null' && token !== 'undefined');
   const role = localStorage.getItem('userRole') || 'customer';
 
   const handleLogout = () => {
@@ -23,6 +26,14 @@ export default function MainLayout() {
     localStorage.removeItem('userRole');
     localStorage.removeItem('userProfile');
     navigate('/');
+  };
+
+  const handleNavClick = (path) => {
+    if (!isLoggedIn && path !== '/app') {
+      navigate(`/login/customer?redirect=${encodeURIComponent(path)}`);
+      return;
+    }
+    navigate(path);
   };
 
   const customerNavItems = [
@@ -43,6 +54,27 @@ export default function MainLayout() {
 
   const navItems = role === 'worker' ? workerNavItems : customerNavItems;
 
+  const [unreadNotifs, setUnreadNotifs] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!token) return;
+    const checkUnread = () => {
+      fetch('http://localhost:5000/api/notifications', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && typeof data.unreadCount === 'number') {
+            setUnreadNotifs(data.unreadCount);
+          }
+        })
+        .catch(() => {});
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 6000);
+    return () => clearInterval(interval);
+  }, [token]);
+
   return (
     <div className="layout-container">
       {/* Desktop Sidebar */}
@@ -58,11 +90,13 @@ export default function MainLayout() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
+            const showBadge = item.label === 'Notifications' && unreadNotifs > 0;
+
             return (
               <div 
                 key={item.path} 
                 className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavClick(item.path)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -78,63 +112,134 @@ export default function MainLayout() {
               >
                 <Icon size={20} className="nav-icon" />
                 <span className="nav-label" style={{ fontSize: '0.95rem' }}>{item.label}</span>
+                {showBadge && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    padding: '1px 7px',
+                    borderRadius: '10px',
+                    lineHeight: '1.4'
+                  }}>
+                    {unreadNotifs}
+                  </span>
+                )}
               </div>
             );
           })}
 
           <div style={{ flex: 1 }}></div>
 
-          <div 
-            className="nav-item" 
-            style={{ 
-              color: '#ef4444', 
-              marginTop: 'auto', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '14px', 
-              padding: '12px 16px', 
-              borderRadius: '12px', 
-              cursor: 'pointer', 
-              fontWeight: '600' 
-            }} 
-            onClick={handleLogout}
-          >
-            <LogOut size={20} className="nav-icon" />
-            <span className="nav-label">Log Out</span>
-          </div>
+          {isLoggedIn ? (
+            <div 
+              className="nav-item" 
+              style={{ 
+                color: '#ef4444', 
+                marginTop: 'auto', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '14px', 
+                padding: '12px 16px', 
+                borderRadius: '12px', 
+                cursor: 'pointer', 
+                fontWeight: '600' 
+              }} 
+              onClick={handleLogout}
+            >
+              <LogOut size={20} className="nav-icon" />
+              <span className="nav-label">Log Out</span>
+            </div>
+          ) : (
+            <div 
+              className="nav-item" 
+              style={{ 
+                color: 'var(--accent-primary)', 
+                marginTop: 'auto', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '14px', 
+                padding: '12px 16px', 
+                borderRadius: '12px', 
+                cursor: 'pointer', 
+                fontWeight: '600',
+                background: 'rgba(79, 70, 229, 0.06)'
+              }} 
+              onClick={() => navigate('/login/customer')}
+            >
+              <LogIn size={20} className="nav-icon" />
+              <span className="nav-label">Sign In</span>
+            </div>
+          )}
         </nav>
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100vh', overflow: 'hidden' }}>
+      <main className="main-content">
         {/* Dynamic Mobile Header */}
-        <header className="mobile-header glass-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px' }}>
-          <div>
+        <header className="mobile-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 className="heading-gradient" style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800' }}>NearFix</h2>
+            <span style={{ fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', background: 'var(--accent-light)', color: 'var(--accent-primary)', padding: '2px 6px', borderRadius: '6px' }}>
+              {role === 'worker' ? 'Worker' : 'Local'}
+            </span>
           </div>
-          <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <LogOut size={22} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isLoggedIn ? (
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px' }} title="Log Out">
+                <LogOut size={20} />
+              </button>
+            ) : (
+              <button onClick={() => navigate('/login/customer')} style={{ background: 'var(--accent-light)', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem' }} title="Sign In">
+                <LogIn size={16} /> Sign In
+              </button>
+            )}
+          </div>
         </header>
 
-        <div className="content-scroll" style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
+        <div className="content-scroll">
           <Outlet />
         </div>
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="bottom-nav glass-panel">
+      <nav className="bottom-nav">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const showBadge = item.label === 'Notifications' && unreadNotifs > 0;
+
           return (
             <div 
               key={item.path} 
               className={`mobile-nav-item ${isActive ? 'active' : ''}`}
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavClick(item.path)}
             >
-              <Icon size={22} className="nav-icon" />
-              <span className="nav-label" style={{ fontSize: '0.75rem' }}>{item.label}</span>
+              <div style={{ position: 'relative', display: 'inline-flex' }}>
+                <Icon size={20} className="nav-icon" />
+                {showBadge && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-6px',
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.65rem',
+                    fontWeight: '800',
+                    width: '15px',
+                    height: '15px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1
+                  }}>
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                  </span>
+                )}
+              </div>
+              <span className="nav-label">{item.label}</span>
             </div>
           );
         })}

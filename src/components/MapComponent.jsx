@@ -60,7 +60,20 @@ export default function MapComponent({
   }
 }) {
   const navigate = useNavigate();
-  const [userLocation, setUserLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('userGeoCoords');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+          return [parsed.lat, parsed.lng];
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading userGeoCoords:', e);
+    }
+    return null;
+  });
   const [locationError, setLocationError] = useState('');
   const [radius, setRadius] = useState(5);
   const [category, setCategory] = useState('All');

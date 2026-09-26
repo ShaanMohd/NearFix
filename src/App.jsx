@@ -27,16 +27,30 @@ import ComplaintDetail from './views/admin/ComplaintDetail';
 import Workers from './views/admin/Workers';
 import Settings from './views/admin/Settings';
 
-import './index.css';
+import LandingPage from './components/LandingPage';
+import { useLocation } from 'react-router-dom';
+
+function AdminRouteGuard() {
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole');
+  const isAuthenticatedAdmin = Boolean(token && userRole === 'admin');
+
+  if (!isAuthenticatedAdmin) {
+    return <AdminLoginView />;
+  }
+
+  return <AdminLayout />;
+}
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<RoleSelection />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login/customer" element={<CustomerLoginView />} />
         <Route path="/login/worker" element={<WorkerLoginView />} />
-        <Route path="/login/admin" element={<AdminLoginView />} />
+        <Route path="/login/admin" element={<Navigate to="/admin" replace />} />
 
         {/* Main Application Layout for Customer & Worker */}
         <Route path="/app" element={<MainLayout />}>
@@ -55,7 +69,7 @@ function App() {
         </Route>
 
         {/* Admin Application Layout */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<AdminRouteGuard />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="verification" element={<WorkerVerification />} />
@@ -74,3 +88,4 @@ function App() {
 }
 
 export default App;
+

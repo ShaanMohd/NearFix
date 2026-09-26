@@ -3,17 +3,68 @@ import {
   CalendarCheck, Clock, CheckCircle2, XCircle, 
   MapPin, Loader2, Zap, Phone, AlertOctagon 
 } from 'lucide-react';
+import CustomerLocationMap from '../components/CustomerLocationMap';
 
 export default function WorkerBookingsView() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
+  const [expandedMapId, setExpandedMapId] = useState(null);
+
+  const toggleMap = (id) => {
+    setExpandedMapId(prev => prev === id ? null : id);
+  };
 
   const token = localStorage.getItem('token');
 
+  const renderLocationBadge = (job) => {
+    let coordsText = null;
+    let googleMapsUrl = null;
+    if (job.customerLocation?.coordinates && job.customerLocation.coordinates.length === 2) {
+      const [lng, lat] = job.customerLocation.coordinates;
+      coordsText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    } else if (job.serviceAddress || job.location) {
+      const addr = job.serviceAddress || job.location;
+      googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+      const m = addr.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+      if (m) coordsText = `${Number(m[1]).toFixed(4)}, ${Number(m[2]).toFixed(4)}`;
+    }
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+        <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <MapPin size={14} color="var(--accent-primary)" /> {job.serviceAddress || job.location || 'Customer Address'}
+        </span>
+        {coordsText && (
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              color: '#059669',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontSize: '0.75rem',
+              fontWeight: '700',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            GPS: {coordsText} ↗
+          </a>
+        )}
+      </div>
+    );
+  };
+
   const fetchBookings = () => {
     if (!token) return;
-    fetch('http://localhost:5000/api/jobs', {
+    fetch('http://localhost:5000/api/jobs?asWorker=true', {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -61,7 +112,7 @@ export default function WorkerBookingsView() {
         </div>
 
         {/* Filter Tabs */}
-        <div style={{ display: 'flex', gap: '6px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
           {['All', 'Pending', 'Accepted', 'Completed'].map(status => (
             <button
               key={status}
@@ -100,7 +151,7 @@ export default function WorkerBookingsView() {
               key={b._id}
               className="glass-panel"
               style={{
-                padding: '24px',
+                padding: 'clamp(16px, 3.5vw, 24px)',
                 borderRadius: '18px',
                 borderLeft: b.isEmergency ? '6px solid #ef4444' : (b.status === 'Completed' ? '4px solid #10b981' : b.status === 'Accepted' ? '4px solid var(--accent-primary)' : '4px solid #f59e0b'),
                 background: b.isEmergency ? '#fff5f5' : '#ffffff',
@@ -124,6 +175,7 @@ export default function WorkerBookingsView() {
                       <span>Customer: <strong>{b.customerId?.name || 'Customer'}</strong></span>
                       <span>• <Phone size={12} style={{ display: 'inline' }} /> {b.customerId?.phone || 'N/A'}</span>
                     </span>
+                    {renderLocationBadge(b)}
                   </div>
                 </div>
 
@@ -139,7 +191,7 @@ export default function WorkerBookingsView() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: b.isEmergency ? '#ffffff' : 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '12px', background: b.isEmergency ? '#ffffff' : 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem' }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Location:</span>
                   <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginTop: '2px' }}>{b.location || 'Customer Address'}</div>
@@ -165,35 +217,67 @@ export default function WorkerBookingsView() {
                 </p>
               )}
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
-                {b.status === 'Pending' && (
-                  <>
-                    <button 
-                      onClick={() => handleUpdateStatus(b._id, 'Rejected')}
-                      style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
-                    >
-                      Reject
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateStatus(b._id, 'Accepted')}
-                      className="btn-primary"
-                      style={{ padding: '8px 20px', fontSize: '0.85rem', background: b.isEmergency ? '#ef4444' : 'var(--accent-primary)' }}
-                    >
-                      Accept Request
-                    </button>
-                  </>
-                )}
+              {/* Customer Location & Map */}
+              {expandedMapId === b._id && (
+                <CustomerLocationMap 
+                  customerLocation={b.customerLocation}
+                  serviceAddress={b.serviceAddress || b.location}
+                  customerName={b.customerId?.name || 'Customer'}
+                />
+              )}
 
-                {b.status === 'Accepted' && (
-                  <button 
-                    onClick={() => handleUpdateStatus(b._id, 'Completed')}
-                    className="btn-primary"
-                    style={{ padding: '8px 20px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <CheckCircle2 size={16} /> Mark Service Completed
-                  </button>
-                )}
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleMap(b._id)}
+                  style={{
+                    background: expandedMapId === b._id ? 'var(--accent-primary)' : 'rgba(37,99,235,0.08)',
+                    border: '1px solid var(--accent-primary)',
+                    color: expandedMapId === b._id ? '#ffffff' : 'var(--accent-primary)',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontSize: '0.84rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <MapPin size={15} /> {expandedMapId === b._id ? 'Hide Location Map' : 'View Location & Map'}
+                </button>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {b.status === 'Pending' && (
+                    <>
+                      <button 
+                        onClick={() => handleUpdateStatus(b._id, 'Rejected')}
+                        style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Reject
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateStatus(b._id, 'Accepted')}
+                        className="btn-primary"
+                        style={{ padding: '8px 20px', fontSize: '0.85rem', background: b.isEmergency ? '#ef4444' : 'var(--accent-primary)' }}
+                      >
+                        Accept Request
+                      </button>
+                    </>
+                  )}
+
+                  {b.status === 'Accepted' && (
+                    <button 
+                      onClick={() => handleUpdateStatus(b._id, 'Completed')}
+                      className="btn-primary"
+                      style={{ padding: '8px 20px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <CheckCircle2 size={16} /> Mark Service Completed
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

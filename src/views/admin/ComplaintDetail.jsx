@@ -197,7 +197,7 @@ export default function ComplaintDetail() {
       </div>
 
       {/* Main Header & ID */}
-      <div className="glass-panel" style={{ padding: '28px 32px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
+      <div className="glass-panel" style={{ padding: 'clamp(18px, 3.5vw, 28px)', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -221,7 +221,7 @@ export default function ComplaintDetail() {
       </div>
 
       {/* Grid: Customer Details & Worker Details */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
         
         {/* Customer Box */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', border: '1px solid var(--border-glass)' }}>
@@ -348,7 +348,7 @@ export default function ComplaintDetail() {
       <div 
         className="glass-panel" 
         style={{ 
-          padding: '24px 32px', 
+          padding: 'clamp(18px, 3vw, 24px)', 
           borderRadius: '20px', 
           border: '1px solid var(--border-glass)',
           display: 'flex',
@@ -430,7 +430,7 @@ export default function ComplaintDetail() {
           zIndex: 1000,
           padding: '24px'
         }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', background: '#ffffff', borderRadius: '24px', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(94vw, 480px)', maxHeight: '90vh', maxHeight: '90dvh', overflowY: 'auto', background: '#ffffff', borderRadius: '24px', padding: 'clamp(20px, 4vw, 32px)', boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>Resolve Complaint</h3>
               <button onClick={() => setShowResolveModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
@@ -471,7 +471,7 @@ export default function ComplaintDetail() {
           zIndex: 1000,
           padding: '24px'
         }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', background: '#ffffff', borderRadius: '24px', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(94vw, 500px)', maxHeight: '90vh', maxHeight: '90dvh', overflowY: 'auto', background: '#ffffff', borderRadius: '24px', padding: 'clamp(20px, 4vw, 32px)', boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ background: 'rgba(239, 68, 68, 0.1)', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
               <ShieldAlert size={32} color="var(--error)" />
             </div>

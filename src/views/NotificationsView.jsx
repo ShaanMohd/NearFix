@@ -25,6 +25,8 @@ export default function NotificationsView() {
 
   useEffect(() => {
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleMarkAllRead = () => {
@@ -49,6 +51,25 @@ export default function NotificationsView() {
       .catch(err => console.error('Error marking read:', err));
   };
 
+  const handleBookingAction = (e, bookingId, status) => {
+    e.stopPropagation();
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/jobs/${bookingId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    })
+      .then(res => res.json())
+      .then(() => {
+        alert(`Booking ${status.toLowerCase()} successfully!`);
+        fetchNotifications();
+      })
+      .catch(err => alert('Error updating booking: ' + err.message));
+  };
+
   const getNotifIcon = (type) => {
     switch (type) {
       case 'EMERGENCY_BOOKING_REQUEST':
@@ -68,7 +89,7 @@ export default function NotificationsView() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 4px 0' }}>Notifications</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
@@ -97,41 +118,96 @@ export default function NotificationsView() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {notifications.map(n => (
-            <div 
-              key={n._id} 
-              className="glass-panel" 
-              onClick={() => {
-                if (!n.isRead) handleMarkSingleRead(n._id);
-                if (role === 'worker') navigate('/app/worker/bookings');
-                else navigate('/app/bookings');
-              }}
-              style={{ 
-                padding: '16px 20px', 
-                borderRadius: '16px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '16px',
-                cursor: 'pointer',
-                background: n.isRead ? '#ffffff' : (n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#fff5f5' : 'var(--accent-light)'),
-                borderLeft: n.type === 'EMERGENCY_BOOKING_REQUEST' ? '4px solid #ef4444' : (n.isRead ? '1px solid var(--border-glass)' : '4px solid var(--accent-primary)'),
-                transition: 'transform 0.2s ease'
-              }}
-            >
-              {getNotifIcon(n.type)}
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: '0 0 4px 0', fontSize: '0.92rem', fontWeight: n.isRead ? '500' : '700', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                  {n.message}
-                </p>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {new Date(n.createdAt).toLocaleString()}
-                </span>
+          {notifications.map(n => {
+            const isBookingNotif = (n.type === 'BOOKING_REQUEST' || n.type === 'EMERGENCY_BOOKING_REQUEST');
+            const booking = n.bookingId;
+            const isPendingWorkerBooking = role === 'worker' && isBookingNotif && booking && booking.status === 'Pending';
+
+            return (
+              <div 
+                key={n._id} 
+                className="glass-panel" 
+                onClick={() => {
+                  if (!n.isRead) handleMarkSingleRead(n._id);
+                  if (role === 'worker') navigate('/app/worker/bookings');
+                  else navigate('/app/bookings');
+                }}
+                style={{ 
+                  padding: '18px 20px', 
+                  borderRadius: '16px', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: '12px',
+                  cursor: 'pointer',
+                  background: n.isRead ? '#ffffff' : (n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#fff5f5' : 'var(--accent-light)'),
+                  borderLeft: n.type === 'EMERGENCY_BOOKING_REQUEST' ? '4px solid #ef4444' : (n.isRead ? '1px solid var(--border-glass)' : '4px solid var(--accent-primary)'),
+                  transition: 'transform 0.2s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {getNotifIcon(n.type)}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: n.isRead ? '600' : '800', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                      {n.message}
+                    </p>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {new Date(n.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {!n.isRead && (
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#ef4444' : 'var(--accent-primary)' }}></div>
+                  )}
+                </div>
+
+                {/* If there's an attached booking with pending status for a worker */}
+                {isPendingWorkerBooking && (
+                  <div style={{ background: '#ffffff', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
+                    <div style={{ fontSize: '0.85rem' }}>
+                      <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                        Service: {booking.serviceType} • {booking.date} ({booking.time})
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        📍 {booking.serviceAddress || booking.location || 'Customer Address'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleBookingAction(e, booking._id, 'Rejected')}
+                        style={{
+                          background: 'none',
+                          border: '1px solid #ef4444',
+                          color: '#ef4444',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          fontWeight: '700',
+                          fontSize: '0.82rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleBookingAction(e, booking._id, 'Accepted')}
+                        className="btn-primary"
+                        style={{
+                          padding: '6px 18px',
+                          borderRadius: '8px',
+                          fontWeight: '700',
+                          fontSize: '0.82rem',
+                          background: n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#ef4444' : 'var(--accent-primary)'
+                        }}
+                      >
+                        Accept
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {!n.isRead && (
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#ef4444' : 'var(--accent-primary)' }}></div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -12,15 +12,25 @@ const JobRequest = require('./models/JobRequest');
 const Notification = require('./models/Notification');
 const Review = require('./models/Review');
 
-async function seedData() {
-  // Clear existing development data
-  await User.deleteMany({});
-  await Project.deleteMany({});
-  await Complaint.deleteMany({});
-  await JobRequest.deleteMany({});
-  await Notification.deleteMany({});
-  await Review.deleteMany({});
-  console.log('Cleared existing database models.');
+async function seedData(options = {}) {
+  const force = options && options.force === true;
+  const userCount = await User.countDocuments();
+
+  if (userCount > 0 && !force) {
+    console.log(`[Seed] Database already contains ${userCount} users. Skipping seed to protect user data.`);
+    return;
+  }
+
+  // Clear existing development data ONLY when force is explicitly set
+  if (force) {
+    await User.deleteMany({});
+    await Project.deleteMany({});
+    await Complaint.deleteMany({});
+    await JobRequest.deleteMany({});
+    await Notification.deleteMany({});
+    await Review.deleteMany({});
+    console.log('[Seed] Cleared existing database models (forced reset).');
+  }
 
   const salt = await bcrypt.genSalt(10);
   const password = await bcrypt.hash('password123', salt);
@@ -273,9 +283,52 @@ async function seedData() {
     title: 'Bathroom Pipeline & Concealed Valve Overhaul',
     description: 'Replaced corroded galvanized iron pipes with leak-proof CPVC lines and installed modern thermostatic shower mixer.',
     category: 'Plumbing',
+    mediaType: 'image',
+    projectType: 'New Installation',
     images: [
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800',
       'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800'
+    ],
+    imageUrl: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800'
+  });
+
+  const p1_video = new Project({
+    workerId: worker1._id,
+    title: 'Under-Sink Trap Replacement & Leak Test',
+    description: 'Replaced clogged P-trap and sealed junction fittings. Verified zero drips under high water pressure test.',
+    category: 'Plumbing',
+    mediaType: 'video',
+    projectType: 'Repair',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    videoDuration: '0:15',
+    imageUrl: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800',
+    images: ['https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=800']
+  });
+
+  const p1_before_after = new Project({
+    workerId: worker1._id,
+    title: 'Vintage Brass Tap to Chrome Mixer Upgrade',
+    description: 'Removed heavily oxidized leaking tap fixture and installed brand new quarter-turn ceramic disc mixer with zero seepage.',
+    category: 'Plumbing',
+    mediaType: 'image',
+    projectType: 'Before & After',
+    beforeImage: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=600',
+    afterImage: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600',
+    imageUrl: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600',
+    images: [
+      'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=600',
+      'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600'
+    ]
+  });
+
+  const p1_showcase = new Project({
+    workerId: worker1._id,
+    title: 'Walk-In Glass Shower Cubicle Installation',
+    description: 'Precision alignment of 10mm toughened safety glass with magnetic waterproof door sweepers and concealed floor drain.',
+    category: 'Plumbing',
+    mediaType: 'image',
+    projectType: 'Completed Work',
+    images: [
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800'
     ],
     imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800'
   });
@@ -285,6 +338,8 @@ async function seedData() {
     title: 'Full Flat Rewiring & Smart Breaker Setup',
     description: 'Complete 3BHK electrical rewiring, MCB distribution board installation, and smart app-controlled switchboard setup.',
     category: 'Electrical',
+    mediaType: 'image',
+    projectType: 'Completed Work',
     images: [
       'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?auto=format&fit=crop&w=800'
     ],
@@ -296,6 +351,8 @@ async function seedData() {
     title: 'Custom Hardwood Modular Kitchen Cabinets',
     description: 'Handcrafted teakwood cabinets with soft-close Blum hinges and moisture-resistant polyurethane finish.',
     category: 'Carpentry',
+    mediaType: 'image',
+    projectType: 'Completed Work',
     images: [
       'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800'
     ],
@@ -303,6 +360,9 @@ async function seedData() {
   });
 
   await p1.save();
+  await p1_video.save();
+  await p1_before_after.save();
+  await p1_showcase.save();
   await p2.save();
   await p3.save();
 
@@ -314,7 +374,9 @@ async function seedData() {
     description: 'Burst main pipe under kitchen sink flooding the floor. Urgent assistance needed!',
     date: 'Today',
     time: 'ASAP',
-    location: 'Andheri West, Mumbai',
+    location: 'Mavoor Road, Kozhikode, Kerala',
+    serviceAddress: 'Mavoor Road, Kozhikode, Kerala',
+    customerLocation: { type: 'Point', coordinates: [75.7800, 11.2580] },
     isEmergency: true,
     serviceCharge: 500,
     emergencyCharge: 150,
@@ -329,7 +391,9 @@ async function seedData() {
     description: 'Replacing damaged main circuit breaker and installing surge protector.',
     date: '2026-08-30',
     time: '11:00 AM',
-    location: 'Bandra West, Mumbai',
+    location: 'Palayam, Kozhikode, Kerala',
+    serviceAddress: 'Palayam, Kozhikode, Kerala',
+    customerLocation: { type: 'Point', coordinates: [75.7815, 11.2505] },
     isEmergency: false,
     serviceCharge: 600,
     emergencyCharge: 0,
@@ -344,7 +408,9 @@ async function seedData() {
     description: 'Re-aligning cabinet doors and fixing dining table leg.',
     date: '2026-08-28',
     time: '02:00 PM',
-    location: 'Andheri West, Mumbai',
+    location: 'Beach Road, Kozhikode, Kerala',
+    serviceAddress: 'Beach Road, Kozhikode, Kerala',
+    customerLocation: { type: 'Point', coordinates: [75.7725, 11.2625] },
     isEmergency: false,
     serviceCharge: 550,
     emergencyCharge: 0,
@@ -399,6 +465,7 @@ async function seedData() {
   const c1 = new Complaint({
     customerId: customer2._id,
     workerId: suspendedWorker._id,
+    bookingId: job1._id,
     category: 'Overcharging',
     description: 'Worker quoted ₹350 initial inspection fee but demanded ₹1500 after opening the appliance panel without doing repair work.',
     status: 'Open'
@@ -407,6 +474,7 @@ async function seedData() {
   const c2 = new Complaint({
     customerId: customer1._id,
     workerId: worker2._id,
+    bookingId: job2._id,
     category: 'Worker did not arrive',
     description: 'Confirmed appointment for 10:00 AM on Monday but did not turn up and phone was unreachable.',
     status: 'Under Review',
@@ -424,6 +492,7 @@ async function seedData() {
 }
 
 async function runStandaloneSeed() {
+  const force = process.argv.includes('--force') || process.argv.includes('-f');
   try {
     let mongoUri = process.env.MONGO_URI;
     try {
@@ -441,7 +510,16 @@ async function runStandaloneSeed() {
       console.log('Connected to MongoMemoryServer for Seeding...');
     }
 
-    await seedData();
+    const count = await User.countDocuments();
+    if (count > 0 && !force) {
+      console.log(`\n⚠️  Database already contains ${count} users.`);
+      console.log('To prevent accidental data loss, existing records were NOT deleted.');
+      console.log('If you want to completely reset and re-seed all demo data, run:');
+      console.log('  node seed.js --force\n');
+      process.exit(0);
+    }
+
+    await seedData({ force: true });
     process.exit(0);
   } catch (err) {
     console.error('Seed Error:', err);

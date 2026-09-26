@@ -17,7 +17,8 @@ import {
   Loader2,
   X,
   ExternalLink,
-  Download
+  Download,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function WorkerVerificationDetail() {
@@ -138,34 +139,71 @@ export default function WorkerVerificationDetail() {
     );
   }
 
+  const getDocMeta = (rawVal, defaultSampleTitle) => {
+    if (!rawVal || !rawVal.trim()) {
+      return { isUploaded: false, isImage: false, isPdf: false, isRealFile: false, url: null, label: 'Not Uploaded' };
+    }
+    const val = rawVal.trim();
+    const isImage = val.startsWith('data:image') || /\.(jpe?g|png|webp|gif|svg)($|\?)/i.test(val);
+    const isPdf = val.startsWith('data:application/pdf') || /\.pdf($|\?)/i.test(val);
+    const isRealFile = val.startsWith('data:') || val.startsWith('http');
+    let label = 'Attached Document';
+    if (isImage) label = 'Document Photo (JPG/PNG)';
+    else if (isPdf) label = 'PDF Document';
+    else if (val.length < 55) label = val;
+    else label = 'Document Uploaded';
+
+    return {
+      isUploaded: true,
+      isImage,
+      isPdf,
+      isRealFile,
+      url: val,
+      label,
+      fileName: isImage ? 'Document_Photo.jpg' : (isPdf ? 'Document.pdf' : (isRealFile ? 'Document' : val))
+    };
+  };
+
+  const openInNewTab = (doc) => {
+    if (!doc || !doc.url) return;
+    if (doc.isImage) {
+      const win = window.open();
+      if (win) {
+        win.document.write(`<title>${doc.title} - ${worker.name}</title><body style="margin:0; background:#0b0f19; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${doc.url}" style="max-width:95%; max-height:95vh; border-radius:8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" /></body>`);
+      }
+    } else {
+      window.open(doc.url, '_blank');
+    }
+  };
+
   const documentsList = [
     {
+      key: 'identityProof',
       title: 'Identity Proof',
-      type: 'National Identity / Aadhaar / Passport',
-      fileName: worker.documents?.identityProof || 'Govt_ID_Proof.pdf',
-      status: 'Uploaded',
-      previewType: 'id'
+      type: 'National Identity / Aadhaar / Voter ID / Passport',
+      required: true,
+      ...getDocMeta(worker.documents?.identityProof, 'Aadhaar_ID_Proof.pdf')
     },
     {
+      key: 'addressProof',
       title: 'Address Proof',
       type: 'Utility Bill / Rental Deed / Bank Statement',
-      fileName: worker.documents?.addressProof || 'Residential_Proof.pdf',
-      status: 'Uploaded',
-      previewType: 'address'
+      required: true,
+      ...getDocMeta(worker.documents?.addressProof, 'Address_Proof.pdf')
     },
     {
-      title: 'Skill Certificate (Optional)',
-      type: 'Trade License / Technical Diploma / ITI',
-      fileName: worker.documents?.skillCertificate || 'Skill_Trade_Certificate.pdf',
-      status: worker.documents?.skillCertificate ? 'Uploaded' : 'Provided on Request',
-      previewType: 'cert'
+      key: 'skillCertificate',
+      title: 'Skill Certificate',
+      type: 'Trade License / Technical Diploma / ITI Certificate',
+      required: false,
+      ...getDocMeta(worker.documents?.skillCertificate, 'Skill_Certificate.pdf')
     },
     {
-      title: 'Experience Proof (Optional)',
+      key: 'experienceProof',
+      title: 'Experience Proof',
       type: 'Prior Employment Letter / Client References',
-      fileName: worker.documents?.experienceProof || 'Experience_Proof_Letter.pdf',
-      status: worker.documents?.experienceProof ? 'Uploaded' : 'Provided on Request',
-      previewType: 'exp'
+      required: false,
+      ...getDocMeta(worker.documents?.experienceProof, 'Experience_Letter.pdf')
     }
   ];
 
@@ -326,15 +364,16 @@ export default function WorkerVerificationDetail() {
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '18px' }}>
           {documentsList.map((doc, idx) => (
             <div 
               key={idx}
               style={{
-                background: 'var(--bg-primary)',
+                background: '#ffffff',
                 padding: '20px',
-                borderRadius: '16px',
-                border: '1px solid var(--border-glass)',
+                borderRadius: '18px',
+                border: doc.isUploaded ? '1px solid var(--border-glass)' : '1px dashed #cbd5e1',
+                boxShadow: doc.isUploaded ? 'var(--shadow-sm)' : 'none',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -342,25 +381,174 @@ export default function WorkerVerificationDetail() {
               }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-primary)', marginBottom: '8px' }}>
-                  <FileText size={20} />
-                  <span style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)' }}>{doc.title}</span>
+                {/* Header with Title and Status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: doc.isUploaded ? 'var(--accent-light)' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {doc.isImage ? <ImageIcon size={18} color="var(--accent-primary)" /> : <FileText size={18} color={doc.isUploaded ? 'var(--accent-primary)' : '#94a3b8'} />}
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                        {doc.title}
+                      </h4>
+                      <span style={{ fontSize: '0.72rem', color: doc.required ? '#ef4444' : 'var(--text-muted)', fontWeight: doc.required ? '700' : '500' }}>
+                        {doc.required ? 'Mandatory Proof *' : 'Optional Document'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {doc.isUploaded ? (
+                    <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <CheckCircle2 size={12} /> Uploaded
+                    </span>
+                  ) : (
+                    <span style={{ background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: '600' }}>
+                      Pending
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
                   {doc.type}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontFamily: 'monospace', background: '#ffffff', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-                  {doc.fileName}
-                </div>
+
+                {/* Preview Thumbnail / Graphic Area */}
+                {doc.isUploaded && doc.isImage ? (
+                  <div
+                    onClick={() => setActiveDoc(doc)}
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '140px',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      border: '1px solid var(--border-glass)',
+                      background: '#0f172a',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <img 
+                      src={doc.url} 
+                      alt={doc.title} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '8px',
+                      background: 'rgba(0,0,0,0.7)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#ffffff',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <Eye size={13} /> View Photo
+                    </div>
+                  </div>
+                ) : doc.isUploaded && doc.isPdf ? (
+                  <div
+                    onClick={() => setActiveDoc(doc)}
+                    style={{
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-glass)',
+                      background: '#fff5f5',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      gap: '6px',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <FileText size={36} color="#ef4444" />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#991b1b' }}>PDF Document Attached</span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--accent-primary)', textDecoration: 'underline' }}>Click to view document</span>
+                  </div>
+                ) : doc.isUploaded && !doc.isRealFile ? (
+                  <div
+                    onClick={() => setActiveDoc(doc)}
+                    style={{
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-tertiary)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      gap: '6px',
+                      padding: '12px',
+                      textAlign: 'center',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <FileText size={32} color="var(--accent-primary)" />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>{doc.label}</span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Registered Record</span>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '1px dashed #cbd5e1',
+                      background: '#f8fafc',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      color: '#94a3b8',
+                      marginBottom: '10px'
+                    }}
+                  >
+                    <AlertCircle size={28} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: '600' }}>No document submitted</span>
+                  </div>
+                )}
               </div>
 
-              <button 
-                onClick={() => setActiveDoc(doc)}
-                className="btn-outline"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <Eye size={16} /> View Document
-              </button>
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => setActiveDoc(doc)}
+                  disabled={!doc.isUploaded}
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    fontSize: '0.85rem',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    opacity: doc.isUploaded ? 1 : 0.4,
+                    cursor: doc.isUploaded ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  <Eye size={15} /> {doc.isImage ? 'View Photo' : 'View Document'}
+                </button>
+                {doc.isUploaded && doc.isRealFile && (
+                  <button
+                    onClick={() => openInNewTab(doc)}
+                    className="btn-outline"
+                    title="Open Full Window"
+                    style={{ padding: '8px 12px', borderRadius: '10px' }}
+                  >
+                    <ExternalLink size={15} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -375,7 +563,7 @@ export default function WorkerVerificationDetail() {
           Previous on-site work and project images submitted by {worker.name}.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px' }}>
           {portfolioImages.map((imgUrl, i) => (
             <div 
               key={i} 
@@ -401,12 +589,14 @@ export default function WorkerVerificationDetail() {
       <div 
         className="glass-panel" 
         style={{ 
-          padding: '24px 32px', 
+          padding: 'clamp(18px, 3vw, 24px)', 
           borderRadius: '20px', 
           border: '1px solid var(--border-glass)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
           background: '#ffffff',
           boxShadow: 'var(--shadow-lg)'
         }}
@@ -465,43 +655,95 @@ export default function WorkerVerificationDetail() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(6px)',
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          padding: '24px'
+          padding: '16px'
         }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '640px', background: '#ffffff', borderRadius: '24px', padding: '28px', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '16px', marginBottom: '20px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: 'min(94vw, 850px)', maxHeight: '92vh', maxHeight: '92dvh', overflowY: 'auto', background: '#ffffff', borderRadius: '24px', padding: 'clamp(16px, 3vw, 28px)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '14px', marginBottom: '16px' }}>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)' }}>{activeDoc.title}</h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{activeDoc.fileName}</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 2px 0' }}>
+                  {activeDoc.title}
+                </h3>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  Verification proof submitted for <strong>{worker.name}</strong> • {activeDoc.label}
+                </span>
               </div>
-              <button onClick={() => setActiveDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                <X size={22} />
+              <button 
+                onClick={() => setActiveDoc(null)} 
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                <X size={20} />
               </button>
             </div>
 
-            {/* Mock Document Render */}
-            <div style={{ height: '320px', background: 'var(--bg-primary)', borderRadius: '16px', border: '1px solid var(--border-glass)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-              <div style={{ background: 'rgba(79, 70, 229, 0.1)', padding: '20px', borderRadius: '50%', marginBottom: '16px' }}>
-                <FileText size={48} color="var(--accent-primary)" />
-              </div>
-              <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>Official Government Record / Certificate</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '380px', marginTop: '6px' }}>
-                Verified document submitted for {worker.name}. All signatures, official seals, and dates are valid for manual compliance.
-              </div>
+            {/* Real Document Content Area */}
+            <div style={{ flex: 1, minHeight: '360px', maxHeight: '68vh', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', background: activeDoc.isImage ? '#0b0f19' : 'var(--bg-primary)', border: '1px solid var(--border-glass)', padding: activeDoc.isImage ? '16px' : '0' }}>
+              {activeDoc.isImage ? (
+                <img 
+                  src={activeDoc.url} 
+                  alt={activeDoc.title} 
+                  style={{ maxWidth: '100%', maxHeight: '64vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }} 
+                />
+              ) : activeDoc.isPdf ? (
+                <iframe 
+                  src={activeDoc.url} 
+                  title={activeDoc.title} 
+                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '16px' }} 
+                />
+              ) : activeDoc.isRealFile ? (
+                <iframe 
+                  src={activeDoc.url} 
+                  title={activeDoc.title} 
+                  style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '16px' }} 
+                />
+              ) : (
+                <div style={{ padding: '40px 24px', textAlign: 'center', maxWidth: '440px' }}>
+                  <div style={{ background: 'rgba(79, 70, 229, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                    <FileText size={32} color="var(--accent-primary)" />
+                  </div>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{activeDoc.label || 'Reference Document'}</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                    This document was registered via reference record: "{activeDoc.url || activeDoc.fileName}". If a physical or scanned photo is required, you may request re-upload by rejecting with "Document unclear".
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-              <button onClick={() => setActiveDoc(null)} className="btn-outline" style={{ padding: '10px 20px' }}>
-                Close Preview
-              </button>
-              <button onClick={() => { alert(`Simulating download of ${activeDoc.fileName}`); }} className="btn-primary" style={{ padding: '10px 20px' }}>
-                <Download size={16} /> Download File
-              </button>
+            {/* Modal Footer Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-glass)', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {activeDoc.isImage ? '📸 Image Format (JPG/PNG)' : activeDoc.isPdf ? '📄 PDF Document' : '📋 Document Record'}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setActiveDoc(null)} className="btn-outline" style={{ padding: '8px 18px', fontSize: '0.85rem' }}>
+                  Close
+                </button>
+                {activeDoc.isRealFile && (
+                  <button 
+                    onClick={() => openInNewTab(activeDoc)} 
+                    className="btn-outline" 
+                    style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <ExternalLink size={15} /> Open in New Tab
+                  </button>
+                )}
+                {activeDoc.isRealFile && (
+                  <a 
+                    href={activeDoc.url} 
+                    download={`${worker.name.replace(/\s+/g, '_')}_${activeDoc.title.replace(/\s+/g, '_')}.${activeDoc.isImage ? 'jpg' : 'pdf'}`}
+                    className="btn-primary" 
+                    style={{ padding: '8px 18px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                  >
+                    <Download size={15} /> Download Document
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
