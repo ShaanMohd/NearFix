@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import Avatar from '../../components/Avatar';
 
 export default function Workers() {
   const [workers, setWorkers] = useState([]);
@@ -246,10 +247,10 @@ export default function Workers() {
                   >
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <img 
-                          src={w.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=100&h=100'} 
-                          alt={w.name} 
-                          style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover' }}
+                        <Avatar 
+                          src={w.avatar} 
+                          name={w.name} 
+                          size={42} 
                         />
                         <div>
                           <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{w.name}</div>
@@ -360,10 +361,10 @@ export default function Workers() {
 
             {/* Header info */}
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '24px' }}>
-              <img 
-                src={selectedWorker.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=150&h=150'} 
-                alt={selectedWorker.name} 
-                style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover' }}
+              <Avatar 
+                src={selectedWorker.avatar} 
+                name={selectedWorker.name} 
+                size={70} 
               />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLocationMap from '../components/CustomerLocationMap';
+import Avatar from '../components/Avatar';
 
 export default function WorkerHome() {
   const navigate = useNavigate();
@@ -236,10 +237,10 @@ export default function WorkerHome() {
                 {/* Request Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img 
-                      src={req.customerId?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100'} 
-                      alt="" 
-                      style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+                    <Avatar 
+                      src={req.customerId?.avatar} 
+                      name={req.customerId?.name || 'Customer'} 
+                      size={48} 
                     />
                     <div>
                       <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem', fontWeight: '700' }}>

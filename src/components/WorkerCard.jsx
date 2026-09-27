@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Star, Briefcase, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Avatar from './Avatar';
 
 export default function WorkerCard({ worker }) {
   const navigate = useNavigate();
@@ -32,10 +33,11 @@ export default function WorkerCard({ worker }) {
       }}
     >
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <img 
-          src={worker.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=150&h=150'} 
-          alt={worker.name} 
-          style={{ width: '54px', height: '54px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)', flexShrink: 0 }}
+        <Avatar 
+          src={worker.avatar} 
+          name={worker.name} 
+          size={54}
+          style={{ border: '2px solid var(--accent-light)' }}
         />
         <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
           <h3 style={{ fontSize: '1.1rem', margin: 0, fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>

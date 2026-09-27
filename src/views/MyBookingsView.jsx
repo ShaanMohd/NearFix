@@ -14,6 +14,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Avatar from '../components/Avatar';
 
 export default function MyBookingsView() {
   const navigate = useNavigate();
@@ -199,10 +200,10 @@ export default function MyBookingsView() {
               {/* Card Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img 
-                    src={b.workerId?.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=100&h=100'} 
-                    alt={b.workerId?.name} 
-                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+                  <Avatar 
+                    src={b.workerId?.avatar} 
+                    name={b.workerId?.name || 'Professional'} 
+                    size={48} 
                   />
                   <div>
                     <h3 style={{ fontSize: '1.1rem', margin: '0 0 2px 0', fontWeight: '700' }}>

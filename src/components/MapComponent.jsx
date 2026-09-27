@@ -11,6 +11,7 @@ import {
 
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import Avatar from './Avatar';
 
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -361,15 +362,13 @@ export default function MapComponent({
                     textAlign: 'center'
                   }}
                 >
-                  <img
+                  <Avatar
                     src={worker.avatar || worker.img}
-                    alt={worker.name}
+                    name={worker.name}
+                    size={52}
                     style={{
-                      width: '52px',
-                      height: '52px',
-                      borderRadius: '50%',
                       marginBottom: '8px',
-                      objectFit: 'cover'
+                      display: 'inline-block'
                     }}
                   />
 

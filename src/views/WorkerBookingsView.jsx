@@ -4,6 +4,7 @@ import {
   MapPin, Loader2, Zap, Phone, AlertOctagon 
 } from 'lucide-react';
 import CustomerLocationMap from '../components/CustomerLocationMap';
+import Avatar from '../components/Avatar';
 
 export default function WorkerBookingsView() {
   const [bookings, setBookings] = useState([]);
@@ -162,10 +163,10 @@ export default function WorkerBookingsView() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <img 
-                    src={b.customerId?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100'} 
-                    alt="" 
-                    style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+                  <Avatar 
+                    src={b.customerId?.avatar} 
+                    name={b.customerId?.name || 'Customer'} 
+                    size={48} 
                   />
                   <div>
                     <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem', fontWeight: '700' }}>

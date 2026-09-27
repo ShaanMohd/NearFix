@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { resolveAvatarUrl } from '../utils/avatar';
+import Avatar from '../components/Avatar';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1660,7 +1661,7 @@ export default function WorkerProfileView() {
               <div key={r._id} style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src={r.customerId?.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                    <Avatar src={r.customerId?.avatar} name={r.customerId?.name || 'Customer'} size={32} />
                     <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>{r.customerId?.name || 'Customer'}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '2px' }}>
