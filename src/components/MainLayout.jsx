@@ -19,7 +19,20 @@ export default function MainLayout() {
 
   const token = localStorage.getItem('token');
   const isLoggedIn = Boolean(token && token !== 'null' && token !== 'undefined');
-  const role = localStorage.getItem('userRole') || 'customer';
+
+  let storedProfile = {};
+  try {
+    storedProfile = JSON.parse(localStorage.getItem('userProfile') || '{}');
+  } catch (e) {
+    storedProfile = {};
+  }
+  const role = storedProfile.role || localStorage.getItem('userRole') || 'customer';
+
+  React.useEffect(() => {
+    if (isLoggedIn && storedProfile.role && localStorage.getItem('userRole') !== storedProfile.role) {
+      localStorage.setItem('userRole', storedProfile.role);
+    }
+  }, [isLoggedIn, storedProfile.role]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -30,7 +43,8 @@ export default function MainLayout() {
 
   const handleNavClick = (path) => {
     if (!isLoggedIn && path !== '/app') {
-      navigate(`/login/customer?redirect=${encodeURIComponent(path)}`);
+      const redirectLogin = path.startsWith('/app/worker') ? '/login/worker' : '/login/customer';
+      navigate(`${redirectLogin}?redirect=${encodeURIComponent(path)}`);
       return;
     }
     navigate(path);
@@ -166,7 +180,7 @@ export default function MainLayout() {
                 fontWeight: '600',
                 background: 'rgba(79, 70, 229, 0.06)'
               }} 
-              onClick={() => navigate('/login/customer')}
+              onClick={() => navigate(location.pathname.startsWith('/app/worker') ? '/login/worker' : '/login/customer')}
             >
               <LogIn size={20} className="nav-icon" />
               <span className="nav-label">Sign In</span>
@@ -191,7 +205,7 @@ export default function MainLayout() {
                 <LogOut size={20} />
               </button>
             ) : (
-              <button onClick={() => navigate('/login/customer')} style={{ background: 'var(--accent-light)', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem' }} title="Sign In">
+              <button onClick={() => navigate(location.pathname.startsWith('/app/worker') ? '/login/worker' : '/login/customer')} style={{ background: 'var(--accent-light)', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem' }} title="Sign In">
                 <LogIn size={16} /> Sign In
               </button>
             )}

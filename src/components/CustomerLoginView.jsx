@@ -204,6 +204,18 @@ export default function CustomerLoginView() {
     }
   };
 
+  // Active session status check
+  const activeToken = localStorage.getItem('token');
+  const activeProfile = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('userProfile') || '{}');
+    } catch {
+      return {};
+    }
+  }, [activeToken]);
+  const activeRole = activeProfile.role || localStorage.getItem('userRole');
+  const isAlreadyLoggedInAsWorker = Boolean(activeToken && activeRole === 'worker');
+
   // Handle Login
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -214,7 +226,11 @@ export default function CustomerLoginView() {
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, password: formData.password })
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password,
+          role: 'customer'
+        })
       });
 
       const data = await response.json();
@@ -223,8 +239,12 @@ export default function CustomerLoginView() {
         throw new Error(data.message || 'Invalid credentials');
       }
 
+      if (data.user && data.user.role !== 'customer') {
+        throw new Error('Access denied: This account is registered as a Service Provider. Please sign in via the Worker login page.');
+      }
+
       localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', 'customer');
+      localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('userProfile', JSON.stringify(data.user));
       navigate(redirectTarget);
 
@@ -274,6 +294,43 @@ export default function CustomerLoginView() {
                 : 'Sign in to connect with trusted local service professionals.'}
           </p>
         </div>
+
+        {isAlreadyLoggedInAsWorker && !isRegistering && (
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '0.86rem',
+            color: 'var(--text-secondary)'
+          }}>
+            <div>
+              <span>You are currently signed in as a <strong>Service Provider</strong> ({activeProfile.name || activeProfile.email || 'Worker Account'}).</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/app/workerHome')}
+              style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: 'none',
+                color: '#059669',
+                fontWeight: '600',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.82rem',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Open Worker Console →
+            </button>
+          </div>
+        )}
 
         {redirectTarget.includes('/app/map') && (
           <div style={{

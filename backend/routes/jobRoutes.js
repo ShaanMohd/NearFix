@@ -160,6 +160,22 @@ router.put('/:id/status', auth, async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
+    const isWorker = booking.workerId.toString() === req.user.userId.toString();
+    const isCustomer = booking.customerId.toString() === req.user.userId.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isWorker && !isCustomer && !isAdmin) {
+      return res.status(403).json({ message: 'Access denied: You are not authorized to update this booking.' });
+    }
+
+    if (['Accepted', 'Rejected', 'Completed'].includes(status) && !isWorker && !isAdmin) {
+      return res.status(403).json({ message: 'Access denied: Only the assigned service provider can update this booking status.' });
+    }
+
+    if (status === 'Cancelled' && !isCustomer && !isWorker && !isAdmin) {
+      return res.status(403).json({ message: 'Access denied: You cannot cancel this booking.' });
+    }
+
     booking.status = status;
     booking.updatedAt = Date.now();
     await booking.save();

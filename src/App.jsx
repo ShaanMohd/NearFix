@@ -29,6 +29,12 @@ import Settings from './views/admin/Settings';
 
 import LandingPage from './components/LandingPage';
 import { useLocation } from 'react-router-dom';
+import { 
+  WorkerRouteGuard, 
+  CustomerProtectedGuard, 
+  CustomerHomeGuard, 
+  CustomerMapGuard 
+} from './components/RouteGuards';
 
 function AdminRouteGuard() {
   const location = useLocation();
@@ -54,18 +60,19 @@ function App() {
 
         {/* Main Application Layout for Customer & Worker */}
         <Route path="/app" element={<MainLayout />}>
-          <Route index element={<HomeView />} />
-          <Route path="map" element={<MapView />} />
-          <Route path="bookings" element={<MyBookingsView />} />
+          {/* Customer Routes with Role Separation */}
+          <Route index element={<CustomerHomeGuard><HomeView /></CustomerHomeGuard>} />
+          <Route path="map" element={<CustomerMapGuard><MapView /></CustomerMapGuard>} />
+          <Route path="bookings" element={<CustomerProtectedGuard><MyBookingsView /></CustomerProtectedGuard>} />
           <Route path="notifications" element={<NotificationsView />} />
-          <Route path="profile" element={<ProfileView />} />
+          <Route path="profile" element={<CustomerProtectedGuard><ProfileView /></CustomerProtectedGuard>} />
           <Route path="worker/:id" element={<WorkerProfileView />} />
 
-          {/* Worker Specific Routes */}
-          <Route path="workerHome" element={<WorkerHome />} />
-          <Route path="worker/bookings" element={<WorkerBookingsView />} />
-          <Route path="worker/schedule" element={<WorkerScheduleView />} />
-          <Route path="workerProfile" element={<WorkerProfileView />} />
+          {/* Worker Specific Routes with WorkerRouteGuard Protection */}
+          <Route path="workerHome" element={<WorkerRouteGuard><WorkerHome /></WorkerRouteGuard>} />
+          <Route path="worker/bookings" element={<WorkerRouteGuard><WorkerBookingsView /></WorkerRouteGuard>} />
+          <Route path="worker/schedule" element={<WorkerRouteGuard><WorkerScheduleView /></WorkerRouteGuard>} />
+          <Route path="workerProfile" element={<WorkerRouteGuard><WorkerProfileView /></WorkerRouteGuard>} />
         </Route>
 
         {/* Admin Application Layout */}

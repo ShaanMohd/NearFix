@@ -594,10 +594,10 @@ router.post('/register', async (req, res) => {
 // ==========================================
 
 // @route   POST /api/auth/login
-// @desc    Authenticate user & get token (Existing login functionality preserved)
+// @desc    Authenticate user & get token with strict role matching when specified
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role, expectedRole } = req.body;
     
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password.' });
@@ -612,6 +612,32 @@ router.post('/login', async (req, res) => {
 
     if (user.accountStatus === 'Suspended') {
       return res.status(403).json({ message: 'Your account has been suspended by an administrator. Please contact support.' });
+    }
+
+    // Role-based separation check: if portal specifies required role, enforce matching
+    const targetRole = role || expectedRole;
+    if (targetRole && targetRole !== user.role) {
+      if (targetRole === 'worker' && user.role === 'customer') {
+        return res.status(403).json({
+          message: 'Access denied: This account is registered as a Customer. Please sign in via the Customer login page.'
+        });
+      } else if (targetRole === 'customer' && user.role === 'worker') {
+        return res.status(403).json({
+          message: 'Access denied: This account is registered as a Service Provider. Please sign in via the Worker login page.'
+        });
+      } else if (targetRole === 'admin') {
+        return res.status(403).json({
+          message: 'Access denied: This account does not possess administrator privileges.'
+        });
+      } else if (user.role === 'admin') {
+        return res.status(403).json({
+          message: 'Access denied: This account is an Administrator. Please access via the Admin console.'
+        });
+      } else {
+        return res.status(403).json({
+          message: `Access denied: Account role (${user.role}) does not have permission to access the ${targetRole} portal.`
+        });
+      }
     }
 
     const payload = { userId: user._id, role: user.role };

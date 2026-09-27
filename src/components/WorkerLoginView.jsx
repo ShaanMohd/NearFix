@@ -391,6 +391,18 @@ export default function WorkerLoginView() {
     }
   };
 
+  // Active session status check
+  const activeToken = localStorage.getItem('token');
+  const activeProfile = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('userProfile') || '{}');
+    } catch {
+      return {};
+    }
+  }, [activeToken]);
+  const activeRole = activeProfile.role || localStorage.getItem('userRole');
+  const isAlreadyLoggedInAsCustomer = Boolean(activeToken && activeRole === 'customer');
+
   // Handle Login
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -401,7 +413,11 @@ export default function WorkerLoginView() {
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, password: formData.password })
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password,
+          role: 'worker'
+        })
       });
 
       const data = await response.json();
@@ -410,8 +426,12 @@ export default function WorkerLoginView() {
         throw new Error(data.message || 'Invalid credentials');
       }
 
+      if (data.user && data.user.role !== 'worker') {
+        throw new Error('Access denied: This account is registered as a Customer. Please sign in via the Customer login page.');
+      }
+
       localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', 'worker');
+      localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('userProfile', JSON.stringify(data.user));
       navigate(redirectTarget);
 
@@ -497,6 +517,43 @@ export default function WorkerLoginView() {
             </div>
           )}
         </div>
+
+        {isAlreadyLoggedInAsCustomer && !isRegistering && (
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: '12px',
+            padding: '12px 14px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            fontSize: '0.86rem',
+            color: 'var(--text-secondary)'
+          }}>
+            <div>
+              <span>You are currently signed in as a <strong>Customer</strong> ({activeProfile.name || activeProfile.email || 'Customer Account'}).</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/app')}
+              style={{
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: 'none',
+                color: '#2563eb',
+                fontWeight: '600',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.82rem',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Open Customer Portal →
+            </button>
+          </div>
+        )}
 
         {error && (
           <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', padding: '12px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
