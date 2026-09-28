@@ -20,6 +20,7 @@ export default function MyBookingsView() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('All');
 
   // Review Modal State
   const [reviewBooking, setReviewBooking] = useState(null);
@@ -137,21 +138,59 @@ export default function MyBookingsView() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Accepted':
-        return <span style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14}/> Accepted</span>;
+        return <span style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14}/> Confirmed / Accepted</span>;
+      case 'EmergencyAcceptedPendingCustomer':
+        return <span style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🚨 ETA Ready • Confirm Dispatch</span>;
+      case 'RescheduleProposed':
+        return <span style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>📅 Alternative Proposed</span>;
       case 'Completed':
         return <span style={{ background: 'rgba(59,130,246,0.1)', color: 'var(--accent-primary)', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14}/> Service Completed</span>;
       case 'Rejected':
         return <span style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><XCircle size={14}/> Rejected</span>;
       case 'Cancelled':
         return <span style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', padding: '4px 12px', borderRadius: '8px', fontWeight: '600', fontSize: '0.8rem' }}>Cancelled</span>;
+      case 'Expired':
+        return <span style={{ background: '#f3f4f6', color: '#6b7280', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem' }}>⏱️ Offer Expired (5m)</span>;
       default:
-        return <span style={{ background: 'rgba(245,158,11,0.12)', color: '#d97706', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={14}/> Pending Worker Response</span>;
+        return <span style={{ background: 'rgba(245,158,11,0.12)', color: '#d97706', padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={14}/> Awaiting Worker Response</span>;
     }
   };
 
+  const handleUpdateBookingStatus = (bookingId, status) => {
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/jobs/${bookingId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    })
+      .then(res => res.json())
+      .then(() => fetchBookings())
+      .catch(err => console.error('Error updating booking status:', err));
+  };
+
+  const sortedBookings = [...bookings].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const emergencyCount = bookings.filter(b => b.isEmergency).length;
+  const activeEmergencyCount = bookings.filter(b => b.isEmergency && (b.status === 'Pending' || b.status === 'EmergencyAcceptedPendingCustomer')).length;
+
+  const filteredBookings = sortedBookings.filter(b => {
+    if (filterStatus === 'All') return true;
+    if (filterStatus === 'Emergency') return b.isEmergency === true;
+    if (filterStatus === 'Pending') {
+      return b.status === 'Pending' || b.status === 'EmergencyAcceptedPendingCustomer' || b.status === 'RescheduleProposed';
+    }
+    if (filterStatus === 'Accepted') return b.status === 'Accepted';
+    if (filterStatus === 'Completed') return b.status === 'Completed';
+    if (filterStatus === 'Cancelled') return b.status === 'Cancelled' || b.status === 'Rejected' || b.status === 'Expired';
+    return true;
+  });
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 6px 0' }}>My Bookings</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
@@ -167,24 +206,76 @@ export default function MyBookingsView() {
         </button>
       </div>
 
+      {/* Filter Tabs */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-glass)', marginBottom: '24px' }}>
+        {[
+          { id: 'All', label: 'All' },
+          { id: 'Emergency', label: 'Emergency 🚨', count: emergencyCount, badgeBg: activeEmergencyCount > 0 ? '#ef4444' : '#6b7280' },
+          { id: 'Pending', label: 'Pending' },
+          { id: 'Accepted', label: 'Accepted' },
+          { id: 'Completed', label: 'Completed' },
+          { id: 'Cancelled', label: 'Cancelled' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterStatus(tab.id)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: filterStatus === tab.id ? (tab.id === 'Emergency' ? '#ef4444' : 'var(--accent-primary)') : 'transparent',
+              color: filterStatus === tab.id ? '#ffffff' : (tab.id === 'Emergency' && activeEmergencyCount > 0 ? '#ef4444' : 'var(--text-secondary)'),
+              fontWeight: filterStatus === tab.id ? '700' : '600',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>{tab.label}</span>
+            {tab.count > 0 && (
+              <span style={{
+                background: filterStatus === tab.id ? 'rgba(255,255,255,0.25)' : tab.badgeBg,
+                color: '#ffffff',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                padding: '1px 6px',
+                borderRadius: '10px'
+              }}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', color: 'var(--accent-primary)' }}>
           <Loader2 size={40} className="animate-spin" />
         </div>
-      ) : bookings.length === 0 ? (
+      ) : filteredBookings.length === 0 ? (
         <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', borderRadius: '20px' }}>
           <CalendarCheck size={48} color="var(--accent-primary)" style={{ opacity: 0.6, marginBottom: '12px' }} />
-          <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>No Bookings Yet</h3>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '8px' }}>
+            {filterStatus === 'All' ? 'No Bookings Yet' : `No ${filterStatus} Bookings`}
+          </h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '20px' }}>
-            Find verified professionals on the map or discover feed and select a service.
+            {filterStatus === 'All' ? 'Find verified professionals on the map or discover feed and select a service.' : `There are currently no bookings under the ${filterStatus} category.`}
           </p>
-          <button onClick={() => navigate('/app')} className="btn-primary" style={{ padding: '10px 24px' }}>
-            Discover Workers
-          </button>
+          {filterStatus === 'All' ? (
+            <button onClick={() => navigate('/app')} className="btn-primary" style={{ padding: '10px 24px' }}>
+              Discover Workers
+            </button>
+          ) : (
+            <button onClick={() => setFilterStatus('All')} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-glass)', padding: '8px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
+              View All Bookings
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {bookings.map(b => (
+          {filteredBookings.map(b => (
             <div 
               key={b._id} 
               className="glass-panel" 
@@ -228,9 +319,11 @@ export default function MyBookingsView() {
               {/* Details grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '12px', background: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem' }}>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Date & Time:</span>
-                  <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginTop: '2px' }}>
-                    {b.date} • {b.time}
+                  <span style={{ color: 'var(--text-muted)' }}>Date & Schedule:</span>
+                  <div style={{ fontWeight: '600', color: b.isEmergency ? '#ef4444' : 'var(--text-primary)', marginTop: '2px' }}>
+                    {b.isEmergency 
+                      ? (b.estimatedArrivalTime ? `ETA: ${b.estimatedArrivalTime}` : 'Immediate (ASAP)') 
+                      : `${b.date} • ${b.time} (${b.estimatedDuration || 60} mins)`}
                   </div>
                 </div>
                 <div>
@@ -246,7 +339,72 @@ export default function MyBookingsView() {
                     {b.isEmergency && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginLeft: '4px' }}>(incl. ₹{b.emergencyCharge || 150} emergency fee)</span>}
                   </div>
                 </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Requested At:</span>
+                  <div style={{ fontWeight: '600', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {b.createdAt ? new Date(b.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                  </div>
+                </div>
               </div>
+
+              {/* Action Banner for Emergency Accepted Pending Customer Confirmation */}
+              {b.status === 'EmergencyAcceptedPendingCustomer' && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 2px 0', fontSize: '0.95rem', fontWeight: '800', color: '#b45309' }}>
+                      🚨 Worker Accepted! Ready to Dispatch
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: '#92400e' }}>
+                      Worker's Estimated Arrival Time: <strong>{b.estimatedArrivalTime || '20-30 mins'}</strong>. Please confirm to finalize dispatch.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleUpdateBookingStatus(b._id, 'Cancelled')}
+                      style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => handleUpdateBookingStatus(b._id, 'Accepted')}
+                      className="btn-primary"
+                      style={{ padding: '6px 16px', fontSize: '0.82rem', background: '#dc2626' }}
+                    >
+                      Confirm Dispatch
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Banner for Reschedule Proposed */}
+              {b.status === 'RescheduleProposed' && (
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px 16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 2px 0', fontSize: '0.95rem', fontWeight: '800', color: '#1d4ed8' }}>
+                      📅 Worker Proposed an Alternative Appointment Time
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.84rem', color: '#1e40af' }}>
+                      Proposed Slot: <strong>{b.proposedAlternative?.date} at {b.proposedAlternative?.time}</strong> ({b.proposedAlternative?.estimatedDuration || 60} mins)
+                      {b.proposedAlternative?.note && <span> • "{b.proposedAlternative.note}"</span>}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleUpdateBookingStatus(b._id, 'Cancelled')}
+                      style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '700', cursor: 'pointer' }}
+                    >
+                      Decline & Cancel
+                    </button>
+                    <button
+                      onClick={() => handleUpdateBookingStatus(b._id, 'Accepted')}
+                      className="btn-primary"
+                      style={{ padding: '6px 16px', fontSize: '0.82rem' }}
+                    >
+                      Approve Alternative Time
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {b.description && (
                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>

@@ -6,6 +6,7 @@ export default function NotificationsView() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterTab, setFilterTab] = useState('All');
 
   const fetchNotifications = () => {
     const token = localStorage.getItem('token');
@@ -85,11 +86,37 @@ export default function NotificationsView() {
     }
   };
 
+  const formatRelativeTime = (dateStr) => {
+    if (!dateStr) return '';
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return new Date(dateStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
   const role = localStorage.getItem('userRole') || 'customer';
+
+  // Strict reverse-chronological sorting (newest first)
+  const sortedNotifications = [...notifications].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  const emergencyCount = notifications.filter(n => n.type && n.type.includes('EMERGENCY')).length;
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const filteredNotifications = sortedNotifications.filter(n => {
+    if (filterTab === 'All') return true;
+    if (filterTab === 'Emergency') return n.type && n.type.includes('EMERGENCY');
+    if (filterTab === 'Unread') return !n.isRead;
+    return true;
+  });
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '40px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: '800', margin: '0 0 4px 0' }}>Notifications</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
@@ -104,21 +131,64 @@ export default function NotificationsView() {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-glass)', marginBottom: '20px' }}>
+        {[
+          { id: 'All', label: 'All', count: notifications.length },
+          { id: 'Emergency', label: 'Emergency 🚨', count: emergencyCount, badgeBg: '#ef4444' },
+          { id: 'Unread', label: 'Unread', count: unreadCount, badgeBg: 'var(--accent-primary)' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterTab(tab.id)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: filterTab === tab.id ? (tab.id === 'Emergency' ? '#ef4444' : 'var(--accent-primary)') : 'transparent',
+              color: filterTab === tab.id ? '#ffffff' : (tab.id === 'Emergency' && emergencyCount > 0 ? '#ef4444' : 'var(--text-secondary)'),
+              fontWeight: filterTab === tab.id ? '700' : '600',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>{tab.label}</span>
+            {tab.count > 0 && (
+              <span style={{
+                background: filterTab === tab.id ? 'rgba(255,255,255,0.25)' : (tab.badgeBg || '#6b7280'),
+                color: '#ffffff',
+                fontSize: '0.72rem',
+                fontWeight: '800',
+                padding: '1px 6px',
+                borderRadius: '10px'
+              }}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', color: 'var(--accent-primary)' }}>
           <Loader2 size={40} className="animate-spin" />
         </div>
-      ) : notifications.length === 0 ? (
+      ) : filteredNotifications.length === 0 ? (
         <div className="glass-panel" style={{ textAlign: 'center', padding: '48px 24px', borderRadius: '20px' }}>
           <Bell size={48} color="var(--accent-primary)" style={{ opacity: 0.5, marginBottom: '12px' }} />
-          <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '6px' }}>No Notifications Yet</h3>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '6px' }}>
+            {filterTab === 'All' ? 'No Notifications Yet' : `No ${filterTab} Notifications`}
+          </h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            You will be alerted here when service updates or booking requests occur.
+            {filterTab === 'All' ? 'You will be alerted here when service updates or booking requests occur.' : `No notifications match the ${filterTab} filter.`}
           </p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {notifications.map(n => {
+          {filteredNotifications.map(n => {
             const isBookingNotif = (n.type === 'BOOKING_REQUEST' || n.type === 'EMERGENCY_BOOKING_REQUEST');
             const booking = n.bookingId;
             const isPendingWorkerBooking = role === 'worker' && isBookingNotif && booking && booking.status === 'Pending';
@@ -136,7 +206,7 @@ export default function NotificationsView() {
                   padding: '18px 20px', 
                   borderRadius: '16px', 
                   display: 'flex', 
-                  flexDirection: 'column',
+                  flexDirection: 'column', 
                   gap: '12px',
                   cursor: 'pointer',
                   background: n.isRead ? '#ffffff' : (n.type === 'EMERGENCY_BOOKING_REQUEST' ? '#fff5f5' : 'var(--accent-light)'),
@@ -150,8 +220,9 @@ export default function NotificationsView() {
                     <p style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: n.isRead ? '600' : '800', color: 'var(--text-primary)', lineHeight: '1.4' }}>
                       {n.message}
                     </p>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {new Date(n.createdAt).toLocaleString()}
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={12} />
+                      <span>{formatRelativeTime(n.createdAt)} • {new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </span>
                   </div>
                   {!n.isRead && (

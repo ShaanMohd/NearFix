@@ -99,7 +99,15 @@ router.get('/workers', async (req, res) => {
       ];
     }
 
-    const workers = await User.find(query).select('-password');
+    const rawWorkers = await User.find(query).select('-password');
+    const now = new Date();
+    const workers = rawWorkers.map(w => {
+      const wObj = w.toObject();
+      if (wObj.unavailableUntil && new Date(wObj.unavailableUntil) <= now) {
+        wObj.isAvailable = true;
+      }
+      return wObj;
+    });
     res.json(workers);
   } catch (err) {
     console.error('Error fetching workers:', err.message);
@@ -113,7 +121,11 @@ router.get('/profile/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
+    const userObj = user.toObject();
+    if (userObj.unavailableUntil && new Date(userObj.unavailableUntil) <= new Date()) {
+      userObj.isAvailable = true;
+    }
+    res.json(userObj);
   } catch (err) {
     console.error('Error fetching user profile:', err.message);
     res.status(500).json({ message: 'Server Error' });
@@ -148,7 +160,7 @@ router.put('/profile', auth, async (req, res) => {
     const { 
       name, phone, title, bio, skills, experienceYears, serviceRadius, 
       serviceMode, pricingType, startingPrice, hourlyRate, businessName, 
-      address, location, currentLocation, avatar, isAvailable, 
+      address, location, currentLocation, avatar, isAvailable, unavailableUntil,
       availabilityHours, documents 
     } = req.body;
     
@@ -321,9 +333,28 @@ router.put('/profile', auth, async (req, res) => {
     if (avatar !== undefined) profileFields.avatar = avatar;
     if (availabilityHours !== undefined) profileFields.availabilityHours = availabilityHours;
 
-    // Preserve existing dashboard availability toggle
+    // Manage flexible worker availability and unavailableUntil
     if (isAvailable !== undefined) {
       profileFields.isAvailable = Boolean(isAvailable);
+      if (profileFields.isAvailable) {
+        profileFields.unavailableUntil = null;
+      }
+    }
+
+    if (unavailableUntil !== undefined) {
+      if (unavailableUntil) {
+        const uDate = new Date(unavailableUntil);
+        if (isNaN(uDate.getTime())) {
+          return res.status(400).json({ message: 'Invalid unavailableUntil date format.' });
+        }
+        if (uDate <= new Date()) {
+          return res.status(400).json({ message: 'Unavailable until time must be in the future.' });
+        }
+        profileFields.unavailableUntil = uDate;
+        profileFields.isAvailable = false;
+      } else {
+        profileFields.unavailableUntil = null;
+      }
     }
 
     // Preserve existing KYC documents submission

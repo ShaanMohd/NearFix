@@ -64,14 +64,53 @@ const JobRequestSchema = new mongoose.Schema({
     enum: [
       'Pending',
       'Accepted',
+      'EmergencyAcceptedPendingCustomer',
+      'RescheduleProposed',
       'On The Way',
       'Arrived',
       'In Progress',
       'Completed',
       'Rejected',
-      'Cancelled'
+      'Cancelled',
+      'Expired'
     ],
     default: 'Pending'
+  },
+
+  bookingType: {
+    type: String,
+    enum: ['normal', 'emergency'],
+    default: 'normal'
+  },
+
+  preferredDateTime: {
+    type: Date
+  },
+
+  scheduledDateTime: {
+    type: Date
+  },
+
+  estimatedDuration: {
+    type: Number,
+    default: 60 // in minutes
+  },
+
+  estimatedArrivalTime: {
+    type: String,
+    default: ''
+  },
+
+  expiresAt: {
+    type: Date
+  },
+
+  proposedAlternative: {
+    dateTime: { type: Date },
+    date: { type: String },
+    time: { type: String },
+    estimatedDuration: { type: Number, default: 60 },
+    note: { type: String, default: '' }
   },
 
   isEmergency: {

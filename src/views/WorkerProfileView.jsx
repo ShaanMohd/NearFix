@@ -8,6 +8,16 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { resolveAvatarUrl } from '../utils/avatar';
 import Avatar from '../components/Avatar';
+import { 
+  getTodayLocalDateString, 
+  getCurrentLocalTimeString, 
+  getDefaultBookingTimeString, 
+  getWorkerAvailability, 
+  isDateTimeInPast, 
+  combineLocalDateAndTimeToDate, 
+  formatTime12h, 
+  formatDateReadable 
+} from '../utils/bookingDateUtils';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -136,13 +146,15 @@ export default function WorkerProfileView() {
   // Booking Modal State
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [serviceMode, setServiceMode] = useState('normal'); // 'normal' | 'emergency'
-  const [bookingDate, setBookingDate] = useState('');
-  const [bookingTime, setBookingTime] = useState('10:00 AM');
+  const [bookingDate, setBookingDate] = useState(getTodayLocalDateString());
+  const [bookingTime, setBookingTime] = useState(getDefaultBookingTimeString());
+  const [estimatedDuration, setEstimatedDuration] = useState(60); // minutes
   const [bookingLocation, setBookingLocation] = useState('');
   const [customerCoordinates, setCustomerCoordinates] = useState(null); // [longitude, latitude] GeoJSON
   const [gpsStatus, setGpsStatus] = useState({ loading: false, error: null, success: false });
   const [bookingDesc, setBookingDesc] = useState('');
   const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [bookingError, setBookingError] = useState('');
 
   // Portfolio Filtering & Viewing State
   const [portfolioFilter, setPortfolioFilter] = useState('all'); // 'all' | 'photos' | 'videos' | 'projects' | 'before_after'
@@ -610,9 +622,38 @@ export default function WorkerProfileView() {
     }
 
     setSubmittingBooking(true);
+    setBookingError('');
     const isEmergency = serviceMode === 'emergency';
-    const serviceCharge = worker.hourlyRate || 500;
+    const rate = worker.hourlyRate || 500;
+    const duration = Math.max(15, Number(estimatedDuration) || 60);
+    const serviceCharge = Math.round(rate * (duration / 60));
     const emergencyCharge = isEmergency ? 150 : 0;
+
+    let preferredDateTimeISO = null;
+    if (!isEmergency) {
+      if (!bookingDate || !bookingTime) {
+        setBookingError('Please specify an appointment date and time.');
+        setSubmittingBooking(false);
+        return;
+      }
+
+      if (isDateTimeInPast(bookingDate, bookingTime)) {
+        setBookingError('The selected appointment date and time is in the past. Please select a future time.');
+        setSubmittingBooking(false);
+        return;
+      }
+
+      const dt = combineLocalDateAndTimeToDate(bookingDate, bookingTime);
+      if (worker.isAvailable === false && worker.unavailableUntil) {
+        const uUntil = new Date(worker.unavailableUntil);
+        if (dt < uUntil) {
+          setBookingError(`The worker is currently unavailable until ${formatTime12h(uUntil)} on ${formatDateReadable(uUntil)}. Please choose a time after this period.`);
+          setSubmittingBooking(false);
+          return;
+        }
+      }
+      preferredDateTimeISO = dt.toISOString();
+    }
 
     const resolvedAddress = bookingLocation || (customerCoordinates ? `GPS Location (${customerCoordinates[1].toFixed(4)}, ${customerCoordinates[0].toFixed(4)})` : (currentUser.address || (typeof currentUser.location === 'string' ? currentUser.location : 'Customer Address')));
 
@@ -640,8 +681,10 @@ export default function WorkerProfileView() {
           workerId: worker._id || worker.id,
           serviceType: worker.skills?.[0] || worker.title || 'General Service',
           description: bookingDesc,
-          date: isEmergency ? 'Today' : (bookingDate || 'Tomorrow'),
-          time: isEmergency ? 'ASAP' : bookingTime,
+          date: isEmergency ? 'Today' : bookingDate,
+          time: isEmergency ? 'ASAP' : formatTime12h(bookingTime),
+          preferredDateTime: preferredDateTimeISO,
+          estimatedDuration: duration,
           location: resolvedAddress,
           serviceAddress: resolvedAddress,
           ...(finalCustomerLocation ? { customerLocation: finalCustomerLocation } : {}),
@@ -655,7 +698,7 @@ export default function WorkerProfileView() {
         setShowBookingModal(false);
         setCustomerCoordinates(null);
         setGpsStatus({ loading: false, error: null, success: false });
-        alert(isEmergency ? '🚨 Emergency request sent to worker with priority notification!' : '✅ Booking request sent successfully! The worker has been notified.');
+        alert(isEmergency ? '🚨 Emergency request sent to worker with priority notification! Please await worker confirmation.' : '✅ Booking request sent successfully! The worker has been notified.');
         navigate('/app/bookings');
       } else {
         const data = await res.json().catch(() => ({}));
@@ -663,13 +706,15 @@ export default function WorkerProfileView() {
           localStorage.removeItem('token');
           alert(data.message || 'Your session expired or token is invalid. Please sign in again.');
           navigate(`/login/customer?redirect=${encodeURIComponent(window.location.pathname)}`);
+        } else if (res.status === 409) {
+          setBookingError(data.message || 'The worker is not available during this time slot. Please choose another time.');
         } else {
-          alert(data.message || 'Failed to submit booking request.');
+          setBookingError(data.message || 'Failed to submit booking request.');
         }
       }
     } catch (err) {
       console.error('Booking submission error:', err);
-      alert('Network or server error while submitting booking: ' + err.message);
+      setBookingError('Network or server error while submitting booking: ' + err.message);
     } finally {
       setSubmittingBooking(false);
     }
@@ -1066,6 +1111,15 @@ export default function WorkerProfileView() {
                       <ShieldCheck size={14} /> Verified Professional
                     </span>
                   )}
+                  {(() => {
+                    const avail = getWorkerAvailability(worker);
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: avail.badgeBg, color: avail.badgeColor, padding: '4px 12px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: avail.badgeColor }} />
+                        {avail.statusText}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: '4px 0 0 0', fontWeight: '600' }}>
                   {worker.title || worker.skills?.[0] || 'Service Specialist'}
@@ -1148,12 +1202,16 @@ export default function WorkerProfileView() {
                       navigate(`/login/customer?redirect=${encodeURIComponent(window.location.pathname)}`);
                       return;
                     }
+                    setBookingDate(getTodayLocalDateString());
+                    setBookingTime(getDefaultBookingTimeString());
+                    setEstimatedDuration(60);
+                    setBookingError('');
                     setShowBookingModal(true);
                   }}
                   className="btn-primary" 
                   style={{ padding: '12px 28px', fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <Calendar size={18} /> Book Service Now (₹{worker.hourlyRate || 500}/hr)
+                  <Calendar size={18} /> Book Service (₹{worker.hourlyRate || 500}/hr)
                 </button>
               </div>
             )}
@@ -1740,19 +1798,38 @@ export default function WorkerProfileView() {
 
             {/* Emergency Warning Banner */}
             {serviceMode === 'emergency' && (
-              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', fontSize: '0.82rem', color: '#dc2626', fontWeight: '600' }}>
-                🚨 <strong>Emergency Notice:</strong> Emergency requests are subject to worker acceptance and carry a fixed ₹150 priority fee.
+              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', padding: '12px 14px', borderRadius: '12px', marginBottom: '16px', fontSize: '0.84rem', color: '#dc2626', lineHeight: '1.4' }}>
+                🚨 <strong>Emergency Request:</strong> An urgent paid offer is sent directly to the worker with a <strong>5-minute response window</strong> and a ₹150 priority fee. Emergency offers can be sent even if the worker is currently busy.
               </div>
             )}
 
-            <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Worker Current Availability Notice */}
+            {serviceMode === 'normal' && (() => {
+              const avail = getWorkerAvailability(worker);
+              if (avail.isBusy) {
+                return (
+                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '10px 14px', borderRadius: '12px', marginBottom: '16px', fontSize: '0.84rem', lineHeight: '1.4' }}>
+                    🟡 <strong>Worker Notice:</strong> Worker is {avail.statusText}. Please select a time slot after this unavailable period, or switch to <strong>Emergency Service</strong> for an immediate request.
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {bookingError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '10px 14px', borderRadius: '12px', marginBottom: '16px', fontSize: '0.85rem', fontWeight: '600' }}>
+                ⚠️ {bookingError}
+              </div>
+            )}
+
+            <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Work Description</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Work Description *</label>
                 <textarea 
                   rows={3}
                   value={bookingDesc}
                   onChange={e => setBookingDesc(e.target.value)}
-                  placeholder="Describe the issue or service required..."
+                  placeholder="Describe the issue or service required in detail..."
                   className="input-field"
                   style={{ width: '100%', borderRadius: '10px', fontSize: '0.9rem' }}
                   required
@@ -1760,33 +1837,81 @@ export default function WorkerProfileView() {
               </div>
 
               {serviceMode === 'normal' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Preferred Date</label>
-                    <input 
-                      type="date" 
-                      value={bookingDate}
-                      onChange={e => setBookingDate(e.target.value)}
-                      className="input-field"
-                      style={{ width: '100%', borderRadius: '10px' }}
-                      required
-                    />
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Appointment Date *</label>
+                      <input 
+                        type="date" 
+                        min={getTodayLocalDateString()}
+                        value={bookingDate}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val >= getTodayLocalDateString()) {
+                            setBookingDate(val);
+                          } else {
+                            setBookingDate(getTodayLocalDateString());
+                          }
+                          setBookingError('');
+                        }}
+                        className="input-field"
+                        style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                        required
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Min date: Today</span>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Appointment Time *</label>
+                      <input 
+                        type="time" 
+                        value={bookingTime}
+                        onChange={e => {
+                          setBookingTime(e.target.value);
+                          setBookingError('');
+                        }}
+                        className="input-field"
+                        style={{ width: '100%', borderRadius: '10px', height: '42px' }}
+                        required
+                      />
+                      {isDateTimeInPast(bookingDate, bookingTime) ? (
+                        <span style={{ fontSize: '0.74rem', color: '#ef4444', fontWeight: '700', display: 'block' }}>⚠️ Past time today</span>
+                      ) : (
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Any minute e.g. 09:35 AM</span>
+                      )}
+                    </div>
                   </div>
+
                   <div>
-                    <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Preferred Time Slot</label>
-                    <select 
-                      value={bookingTime}
-                      onChange={e => setBookingTime(e.target.value)}
-                      className="input-field"
-                      style={{ width: '100%', borderRadius: '10px', height: '42px' }}
-                    >
-                      <option value="09:00 AM">09:00 AM</option>
-                      <option value="11:00 AM">11:00 AM</option>
-                      <option value="02:00 PM">02:00 PM</option>
-                      <option value="05:00 PM">05:00 PM</option>
-                    </select>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '700', display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span>Estimated Service Duration</span>
+                      <span style={{ color: 'var(--accent-primary)', fontWeight: '800' }}>
+                        {estimatedDuration >= 60 ? `${(estimatedDuration / 60).toFixed(estimatedDuration % 60 === 0 ? 0 : 1)} hr` : `${estimatedDuration} min`}
+                      </span>
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {[30, 45, 60, 90, 120, 180].map(mins => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => setEstimatedDuration(mins)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            fontWeight: '700',
+                            border: estimatedDuration === mins ? '2px solid var(--accent-primary)' : '1px solid var(--border-glass)',
+                            background: estimatedDuration === mins ? 'var(--accent-light)' : 'var(--bg-tertiary)',
+                            color: estimatedDuration === mins ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {mins >= 60 ? `${mins / 60} hr` : `${mins}m`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               <div>
@@ -1844,26 +1969,32 @@ export default function WorkerProfileView() {
               </div>
 
               {/* Price Breakdown */}
-              <div style={{ background: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: '12px', fontSize: '0.88rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Standard Service Charge:</span>
-                  <span style={{ fontWeight: '600' }}>₹{hourlyRate}</span>
+              <div style={{ background: 'var(--bg-tertiary)', padding: '14px 16px', borderRadius: '14px', fontSize: '0.88rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    Standard Rate (₹{worker.hourlyRate || 500}/hr {serviceMode === 'normal' ? `× ${estimatedDuration} mins` : ''}):
+                  </span>
+                  <span style={{ fontWeight: '600' }}>
+                    ₹{serviceMode === 'normal' ? Math.round((worker.hourlyRate || 500) * (estimatedDuration / 60)) : (worker.hourlyRate || 500)}
+                  </span>
                 </div>
                 {serviceMode === 'emergency' && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#ef4444' }}>
-                    <span>Emergency Priority Charge:</span>
-                    <span style={{ fontWeight: '700' }}>+₹{emergencyFee}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#ef4444' }}>
+                    <span>Emergency Priority Surcharge (5m response):</span>
+                    <span style={{ fontWeight: '700' }}>+₹150</span>
                   </div>
                 )}
-                <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '6px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '8px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>
                   <span>Total Estimated Amount:</span>
                   <span style={{ color: serviceMode === 'emergency' ? '#ef4444' : 'var(--accent-primary)' }}>
-                    ₹{serviceMode === 'emergency' ? totalEmergencyAmount : hourlyRate}
+                    ₹{serviceMode === 'emergency' 
+                      ? ((worker.hourlyRate || 500) + 150) 
+                      : Math.round((worker.hourlyRate || 500) * (estimatedDuration / 60))}
                   </span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
                 <button 
                   type="button" 
                   onClick={() => setShowBookingModal(false)}
@@ -1873,15 +2004,17 @@ export default function WorkerProfileView() {
                 </button>
                 <button 
                   type="submit" 
-                  disabled={submittingBooking}
+                  disabled={submittingBooking || (serviceMode === 'normal' && isDateTimeInPast(bookingDate, bookingTime))}
                   className="btn-primary"
                   style={{ 
-                    padding: '10px 22px', 
+                    padding: '10px 24px', 
                     fontSize: '0.95rem',
                     background: serviceMode === 'emergency' ? '#ef4444' : 'var(--accent-primary)' 
                   }}
                 >
-                  {submittingBooking ? 'Sending Request...' : (serviceMode === 'emergency' ? 'Send Emergency Request' : 'Confirm Booking')}
+                  {submittingBooking 
+                    ? 'Submitting...' 
+                    : (serviceMode === 'emergency' ? 'Send Emergency Offer' : 'Confirm & Request Booking')}
                 </button>
               </div>
             </form>

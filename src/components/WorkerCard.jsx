@@ -2,9 +2,11 @@ import React from 'react';
 import { MapPin, Star, Briefcase, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from './Avatar';
+import { getWorkerAvailability } from '../utils/bookingDateUtils';
 
 export default function WorkerCard({ worker }) {
   const navigate = useNavigate();
+  const avail = getWorkerAvailability(worker);
 
   const handleCardClick = () => {
     navigate(`/app/worker/${worker._id || worker.id}`);
@@ -47,6 +49,10 @@ export default function WorkerCard({ worker }) {
                 <ShieldCheck size={12} /> Verified
               </span>
             )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: avail.badgeBg, color: avail.badgeColor, fontSize: '0.7rem', padding: '2px 7px', borderRadius: '6px', fontWeight: '700' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: avail.badgeColor }} />
+              {avail.statusText}
+            </span>
           </h3>
           <p style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.84rem', margin: '3px 0 0 0' }}>
             <Briefcase size={13} /> {worker.title || worker.skills?.[0] || 'Service Professional'}

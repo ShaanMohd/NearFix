@@ -137,6 +137,11 @@ const UserSchema = new Schema({
     default: true
   },
 
+  unavailableUntil: {
+    type: Date,
+    default: null
+  },
+
   rating: {
     type: Number,
     default: 0,

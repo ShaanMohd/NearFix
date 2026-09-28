@@ -12,6 +12,7 @@ import {
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import Avatar from './Avatar';
+import { getWorkerAvailability } from '../utils/bookingDateUtils';
 
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -234,8 +235,9 @@ export default function MapComponent({
         })();
 
       // Availability filter
+      const avail = getWorkerAvailability(worker);
       const matchesAvailability =
-        !availableOnly || worker.isAvailable === true;
+        !availableOnly || avail.isAvailable;
 
       // Search filter
       const searchText = search.trim().toLowerCase();
@@ -451,22 +453,27 @@ export default function MapComponent({
                       gap: '6px'
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        fontWeight: '700',
-                        background: worker.isAvailable
-                          ? '#dcfce7'
-                          : '#f3f4f6',
-                        color: worker.isAvailable
-                          ? '#15803d'
-                          : '#6b7280'
-                      }}
-                    >
-                      {worker.isAvailable ? 'Available' : 'Unavailable'}
-                    </span>
+                    {(() => {
+                      const avail = getWorkerAvailability(worker);
+                      return (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '3px 8px',
+                            borderRadius: '10px',
+                            fontWeight: '700',
+                            background: avail.badgeBg,
+                            color: avail.badgeColor,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: avail.badgeColor }} />
+                          {avail.statusText}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <button
