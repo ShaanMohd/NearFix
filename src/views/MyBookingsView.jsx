@@ -33,6 +33,76 @@ export default function MyBookingsView() {
   const [category, setCategory] = useState('Poor service');
   const [complaintDesc, setComplaintDesc] = useState('');
   const [submittingComplaint, setSubmittingComplaint] = useState(false);
+  const [completingId, setCompletingId] = useState(null);
+  const [quotationActionLoading, setQuotationActionLoading] = useState(false);
+
+  const handleConfirmCompleted = (booking) => {
+    if (booking.isEmergency && booking.emergencySurchargePercent && booking.quotationStatus !== 'Approved') {
+      alert('Cannot confirm completion: You must review and approve the worker\'s emergency quotation before completing the service.');
+      return;
+    }
+
+    if (!window.confirm(`Confirm that ${booking.workerId?.name || 'the worker'} has completed the service to your satisfaction?`)) {
+      return;
+    }
+    setCompletingId(booking._id);
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/jobs/${booking._id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status: 'Completed' })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setCompletingId(null);
+        fetchBookings();
+        // Automatically open the Review modal to rate the experience
+        setReviewBooking(booking);
+      })
+      .catch(err => {
+        console.error('Error completing service:', err);
+        setCompletingId(null);
+      });
+  };
+
+  const handleRespondQuotation = async (bookingId, action) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    if (action === 'decline' && !window.confirm('Are you sure you want to decline this quotation? The worker will be asked to revise it.')) {
+      return;
+    }
+
+    setQuotationActionLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/jobs/${bookingId}/quotation-respond`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      setQuotationActionLoading(false);
+      if (res.ok) {
+        if (action === 'approve') {
+          alert('✅ Emergency quotation approved successfully! The worker is now authorized to proceed.');
+        } else {
+          alert('⚠️ Quotation declined. The worker has been notified to revise their quotation.');
+        }
+        fetchBookings();
+      } else {
+        alert(data.message || 'Failed to update quotation.');
+      }
+    } catch (err) {
+      setQuotationActionLoading(false);
+      alert('Network error: ' + err.message);
+    }
+  };
 
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
@@ -335,8 +405,23 @@ export default function MyBookingsView() {
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Total Amount:</span>
                   <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>
-                    ₹{b.totalAmount || b.serviceCharge || 500}
-                    {b.isEmergency && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginLeft: '4px' }}>(incl. ₹{b.emergencyCharge || 150} emergency fee)</span>}
+                    {b.isEmergency && b.emergencySurchargePercent ? (
+                      b.totalAmount ? (
+                        <>
+                          ₹{b.totalAmount}
+                          <span style={{ fontSize: '0.75rem', color: '#dc2626', marginLeft: '4px' }}>
+                            (Labor ₹{b.laborCharge} + 10% ₹{b.emergencyCharge}{b.materialCost > 0 ? ` + Mat. ₹${b.materialCost}` : ''})
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: '#b45309', fontSize: '0.85rem' }}>Quoted after inspection (+10% surcharge)</span>
+                      )
+                    ) : (
+                      <>
+                        ₹{b.totalAmount || b.serviceCharge || 500}
+                        {b.isEmergency && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginLeft: '4px' }}>(incl. ₹{b.emergencyCharge || 150} emergency fee)</span>}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -346,6 +431,112 @@ export default function MyBookingsView() {
                   </div>
                 </div>
               </div>
+
+              {/* Emergency Quotation Review & Action Section */}
+              {b.isEmergency && b.status === 'Accepted' && (
+                <div>
+                  {b.quotationStatus === 'Submitted' && (
+                    <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', padding: '16px 20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 2px 0', fontSize: '1.05rem', fontWeight: '800', color: '#166534' }}>
+                            📋 Emergency Quotation from {b.workerId?.name || 'Worker'}
+                          </h4>
+                          <span style={{ fontSize: '0.82rem', color: '#15803d' }}>
+                            Please review the agreed labor charge, 10% emergency priority surcharge, and materials.
+                          </span>
+                        </div>
+                        <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '4px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase' }}>
+                          Action Required
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #bbf7d0', fontSize: '0.88rem' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Labor Charge:</span>
+                          <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '1rem', marginTop: '2px' }}>₹{b.laborCharge}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Emergency Surcharge (10%):</span>
+                          <div style={{ fontWeight: '700', color: '#dc2626', fontSize: '1rem', marginTop: '2px' }}>+₹{b.emergencyCharge}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Material Costs:</span>
+                          <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '1rem', marginTop: '2px' }}>₹{b.materialCost || 0}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Final Total Amount:</span>
+                          <div style={{ fontWeight: '900', color: '#15803d', fontSize: '1.15rem', marginTop: '2px' }}>₹{b.totalAmount}</div>
+                        </div>
+                      </div>
+
+                      {b.workerNote && (
+                        <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                          <strong>Worker Note:</strong> "{b.workerNote}"
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap', borderTop: '1px solid #bbf7d0', paddingTop: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleRespondQuotation(b._id, 'decline')}
+                          disabled={quotationActionLoading}
+                          style={{ background: '#ffffff', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 18px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Decline Quotation
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRespondQuotation(b._id, 'approve')}
+                          disabled={quotationActionLoading}
+                          className="btn-primary"
+                          style={{ background: '#16a34a', borderColor: '#15803d', padding: '8px 22px', fontSize: '0.85rem', fontWeight: '700' }}
+                        >
+                          Approve Quotation (₹{b.totalAmount})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {b.quotationStatus === 'Approved' && (
+                    <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '12px 18px', borderRadius: '12px' }}>
+                      <strong style={{ color: '#065f46', display: 'block', fontSize: '0.9rem' }}>
+                        ✅ Quotation Approved (Agreed Total: ₹{b.totalAmount})
+                      </strong>
+                      <span style={{ fontSize: '0.82rem', color: '#047857' }}>
+                        Breakdown: Labor ₹{b.laborCharge} + 10% Emergency Surcharge (₹{b.emergencyCharge}){b.materialCost > 0 ? ` + Materials ₹${b.materialCost}` : ''}.
+                        The worker is authorized to complete the repair.
+                      </span>
+                    </div>
+                  )}
+
+                  {b.quotationStatus === 'Declined' && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '12px 18px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <strong style={{ color: '#b91c1c', display: 'block', fontSize: '0.9rem' }}>⚠️ Quotation Declined</strong>
+                        <span style={{ fontSize: '0.82rem', color: '#991b1b' }}>
+                          Awaiting a revised quotation from {b.workerId?.name || 'the worker'}. You can also cancel this request if you do not wish to proceed.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleCancelBooking(b._id)}
+                        style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Cancel Request
+                      </button>
+                    </div>
+                  )}
+
+                  {(!b.quotationStatus || b.quotationStatus === 'Pending') && (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 18px', borderRadius: '12px' }}>
+                      <strong style={{ color: '#b45309', display: 'block', fontSize: '0.9rem' }}>⏳ Awaiting Site Inspection & Quotation</strong>
+                      <span style={{ fontSize: '0.82rem', color: '#92400e' }}>
+                        {b.workerId?.name || 'Worker'} will inspect the problem on arrival and submit a quotation with a 10% emergency priority surcharge for your approval before starting work.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Action Banner for Emergency Accepted Pending Customer Confirmation */}
               {b.status === 'EmergencyAcceptedPendingCustomer' && (
@@ -420,6 +611,37 @@ export default function MyBookingsView() {
                     style={{ background: 'none', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
                   >
                     Cancel Request
+                  </button>
+                )}
+
+                {b.status === 'Accepted' && (
+                  <button
+                    onClick={() => handleConfirmCompleted(b)}
+                    disabled={completingId === b._id}
+                    className="btn-primary"
+                    style={{
+                      padding: '7px 16px',
+                      fontSize: '0.85rem',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      background: '#16a34a',
+                      borderColor: '#15803d',
+                      color: '#ffffff',
+                      boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {completingId === b._id ? (
+                      <>
+                        <Loader2 size={15} className="spinner" /> Completing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={15} /> Confirm Service Completed
+                      </>
+                    )}
                   </button>
                 )}
 

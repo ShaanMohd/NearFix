@@ -156,7 +156,7 @@ async function autoExpireEmergencyRequests() {
     await JobRequest.updateMany(
       {
         isEmergency: true,
-        status: 'Pending',
+        status: { $in: ['Open', 'Pending'] },
         $or: [
           { expiresAt: { $lt: new Date() } },
           { expiresAt: { $exists: false }, createdAt: { $lt: fiveMinutesAgo } }

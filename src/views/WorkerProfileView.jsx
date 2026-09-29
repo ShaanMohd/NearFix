@@ -35,47 +35,70 @@ const defaultLocationIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-// Custom interactive Service Location marker pin
+// Custom interactive Service Location marker pin - authentic map pin pointing directly to coordinates
 const serviceLocationMarkerIcon = L.divIcon({
   className: 'service-location-pin',
   html: `
     <div style="
-      background: #4f46e5;
-      color: #ffffff;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-weight: 700;
-      font-size: 12px;
-      border: 2px solid #ffffff;
-      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.45);
+      position: relative;
+      width: 36px;
+      height: 50px;
       display: flex;
       align-items: center;
-      gap: 5px;
-      white-space: nowrap;
+      justify-content: center;
       cursor: grab;
       user-select: none;
     ">
-      <span>📍</span> Service Location
+      <svg width="36" height="50" viewBox="0 0 36 50" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 10px rgba(79, 70, 229, 0.45));">
+        <!-- Ground contact shadow -->
+        <ellipse cx="18" cy="47.5" rx="7.5" ry="2.2" fill="rgba(15, 23, 42, 0.35)"/>
+        <!-- Teardrop Pin Body -->
+        <path d="M18 45.5C17.4 44.7 3 25.5 3 16A15 15 0 1 1 33 16C33 25.5 18.6 44.7 18 45.5Z" fill="#4f46e5" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- Inner White Circle -->
+        <circle cx="18" cy="16" r="6" fill="#ffffff"/>
+        <!-- Center Accent Dot -->
+        <circle cx="18" cy="16" r="3" fill="#4f46e5"/>
+      </svg>
     </div>
   `,
-  iconSize: [130, 36],
-  iconAnchor: [65, 36],
-  popupAnchor: [0, -36]
+  iconSize: [36, 50],
+  iconAnchor: [18, 46],
+  popupAnchor: [0, -46]
 });
 
-// Interactive map component that moves marker on click or drag
+// Kozhikode regional presets for quick location picking
+const KOZHIKODE_PRESETS = [
+  { name: 'Mananchira', lat: 11.2588, lng: 75.7804 },
+  { name: 'Mavoor Road', lat: 11.2595, lng: 75.7920 },
+  { name: 'Nadakkavu', lat: 11.2720, lng: 75.7760 },
+  { name: 'Palayam', lat: 11.2490, lng: 75.7850 },
+  { name: 'West Hill', lat: 11.2950, lng: 75.7600 },
+  { name: 'Calicut Beach', lat: 11.2610, lng: 75.7680 },
+  { name: 'Medical College', lat: 11.2750, lng: 75.8350 },
+  { name: 'Kallayi / Panniankara', lat: 11.2314, lng: 75.7925 },
+  { name: 'Feroke', lat: 11.1960, lng: 75.8340 }
+];
+
+// Interactive map component that moves marker on click or drag without snapping back
 function ServiceLocationPickerMap({ markerPos, onPositionChange }) {
   const map = useMap();
+  const prevPosRef = useRef(null);
 
   useEffect(() => {
     if (!map) return;
     const timer = setTimeout(() => {
       map.invalidateSize();
-      if (markerPos) {
-        map.setView([markerPos.lat, markerPos.lng], map.getZoom() || 14);
-      }
-    }, 200);
+    }, 150);
     return () => clearTimeout(timer);
+  }, [map]);
+
+  useEffect(() => {
+    if (!map || !markerPos) return;
+    const prev = prevPosRef.current;
+    if (!prev || Math.abs(prev.lat - markerPos.lat) > 0.0001 || Math.abs(prev.lng - markerPos.lng) > 0.0001) {
+      map.panTo([markerPos.lat, markerPos.lng], { animate: true, duration: 0.4 });
+      prevPosRef.current = markerPos;
+    }
   }, [map, markerPos]);
 
   useMapEvents({
@@ -205,11 +228,12 @@ export default function WorkerProfileView() {
     phone: '',
     bio: '',
     skills: [],
-    experienceYears: 0,
+    experienceYears: '',
     serviceRadius: '15 km',
     serviceMode: 'Home Service',
-    pricingType: 'Hourly',
-    startingPrice: 500,
+    pricingType: 'Custom',
+    startingPrice: '',
+    minimumCharge: '',
     businessName: '',
     address: '',
     locationCoords: { lat: 11.2588, lng: 75.7804 }
@@ -219,6 +243,8 @@ export default function WorkerProfileView() {
   const [detectingGpsInModal, setDetectingGpsInModal] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [editError, setEditError] = useState('');
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [searchingPlace, setSearchingPlace] = useState(false);
 
   // Current Location State
   const [updatingCurrentLoc, setUpdatingCurrentLoc] = useState(false);
@@ -302,17 +328,27 @@ export default function WorkerProfileView() {
     const lat = (coords && typeof coords[1] === 'number') ? coords[1] : 11.2588;
     const lng = (coords && typeof coords[0] === 'number') ? coords[0] : 75.7804;
 
+    const currentMin = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+      ? worker.minimumCharge
+      : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+        ? worker.startingPrice
+        : '';
+    const currentExp = (typeof worker.experienceYears === 'number' && worker.experienceYears > 0)
+      ? worker.experienceYears
+      : '';
+
     setEditForm({
       name: worker.name || '',
       title: worker.title || worker.skills?.[0] || '',
       phone: worker.phone ? worker.phone.replace(/\D/g, '') : '',
       bio: worker.bio || '',
       skills: Array.isArray(worker.skills) ? [...worker.skills] : [],
-      experienceYears: worker.experienceYears !== undefined ? worker.experienceYears : 2,
+      experienceYears: currentExp,
       serviceRadius: worker.serviceRadius || '15 km',
       serviceMode: worker.serviceMode || 'Home Service',
-      pricingType: worker.pricingType || 'Hourly',
-      startingPrice: worker.startingPrice !== undefined ? worker.startingPrice : (worker.hourlyRate || 500),
+      pricingType: worker.pricingType || 'Custom',
+      startingPrice: currentMin,
+      minimumCharge: currentMin,
       businessName: worker.businessName || '',
       address: worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala'),
       locationCoords: { lat, lng }
@@ -362,6 +398,71 @@ export default function WorkerProfileView() {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+  const handleSelectPresetLocality = (loc) => {
+    setEditForm(prev => ({
+      ...prev,
+      locationCoords: { lat: loc.lat, lng: loc.lng },
+      address: `${loc.name}, Kozhikode, Kerala`
+    }));
+  };
+
+  const handleSearchPlaceOnMap = async () => {
+    const q = mapSearchQuery.trim();
+    if (!q) return;
+
+    // Check offline preset match first
+    const matched = KOZHIKODE_PRESETS.find(p => p.name.toLowerCase().includes(q.toLowerCase()));
+    if (matched) {
+      setEditForm(prev => ({
+        ...prev,
+        locationCoords: { lat: matched.lat, lng: matched.lng },
+        address: `${matched.name}, Kozhikode, Kerala`
+      }));
+      setMapSearchQuery('');
+      return;
+    }
+
+    setSearchingPlace(true);
+    try {
+      const queryStr = encodeURIComponent(q + (q.toLowerCase().includes('kozhikode') || q.toLowerCase().includes('calicut') ? '' : ', Kozhikode, Kerala'));
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${queryStr}&limit=1`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        const nameParts = data[0].display_name ? data[0].display_name.split(',').slice(0, 3).join(', ') : `${q}, Kozhikode`;
+        setEditForm(prev => ({
+          ...prev,
+          locationCoords: { lat, lng },
+          address: nameParts
+        }));
+        setMapSearchQuery('');
+      } else {
+        alert(`No location found for "${q}". You can select a quick locality chip below or click directly on the map.`);
+      }
+    } catch (err) {
+      console.error('Geocoding error:', err);
+      alert('Could not search location. Please select a quick locality below or click on the map.');
+    } finally {
+      setSearchingPlace(false);
+    }
+  };
+
+  const handleMapPositionChange = async (newPos) => {
+    setEditForm(prev => ({ ...prev, locationCoords: newPos }));
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newPos.lat}&lon=${newPos.lng}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        const shortAddr = data.display_name.split(',').slice(0, 3).join(', ');
+        if (shortAddr) {
+          setEditForm(prev => ({ ...prev, address: shortAddr }));
+        }
+      }
+    } catch (e) {
+      // Non-fatal fallback
+    }
+  };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -395,16 +496,25 @@ export default function WorkerProfileView() {
       return;
     }
 
-    const exp = Number(editForm.experienceYears);
-    if (isNaN(exp) || exp < 0 || exp > 70) {
-      setEditError('Years of experience must be a non-negative number between 0 and 70.');
-      return;
+    // Optional Years of Experience: 0/empty means hide from profile
+    let exp = 0;
+    if (editForm.experienceYears !== '' && editForm.experienceYears !== null && editForm.experienceYears !== undefined) {
+      exp = Number(editForm.experienceYears);
+      if (isNaN(exp) || exp < 0 || exp > 70) {
+        setEditError('Years of experience must be a non-negative number between 0 and 70 (or leave empty).');
+        return;
+      }
     }
 
-    const price = Number(editForm.startingPrice);
-    if (isNaN(price) || price < 0) {
-      setEditError('Starting price must be a non-negative number.');
-      return;
+    // Optional Minimum Charge: 0/empty means hide from profile
+    let minChargeVal = 0;
+    const rawPrice = editForm.minimumCharge !== undefined && editForm.minimumCharge !== '' ? editForm.minimumCharge : editForm.startingPrice;
+    if (rawPrice !== '' && rawPrice !== null && rawPrice !== undefined) {
+      minChargeVal = Number(rawPrice);
+      if (isNaN(minChargeVal) || minChargeVal < 0) {
+        setEditError('Minimum charge must be a non-negative number (or leave empty).');
+        return;
+      }
     }
 
     const cleanAddress = (editForm.address || '').trim();
@@ -427,8 +537,9 @@ export default function WorkerProfileView() {
         serviceRadius: editForm.serviceRadius,
         serviceMode: editForm.serviceMode,
         pricingType: editForm.pricingType,
-        startingPrice: price,
-        hourlyRate: price,
+        minimumCharge: minChargeVal,
+        startingPrice: minChargeVal,
+        hourlyRate: minChargeVal,
         businessName: (editForm.businessName || '').trim(),
         address: cleanAddress,
         location: editForm.locationCoords ? {
@@ -451,6 +562,7 @@ export default function WorkerProfileView() {
         setWorker(prev => ({ ...prev, ...updatedUser }));
         const stored = JSON.parse(localStorage.getItem('userProfile')) || {};
         localStorage.setItem('userProfile', JSON.stringify({ ...stored, ...updatedUser }));
+        window.dispatchEvent(new Event('storage'));
         setShowEditModal(false);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -671,35 +783,46 @@ export default function WorkerProfileView() {
     }
 
     try {
+      const payload = {
+        serviceType: worker.skills?.[0] || worker.title || 'General Service',
+        description: bookingDesc,
+        date: isEmergency ? 'Today' : bookingDate,
+        time: isEmergency ? 'ASAP' : formatTime12h(bookingTime),
+        preferredDateTime: preferredDateTimeISO,
+        estimatedDuration: duration,
+        location: resolvedAddress,
+        serviceAddress: resolvedAddress,
+        ...(finalCustomerLocation ? { customerLocation: finalCustomerLocation } : {}),
+        isEmergency,
+        serviceCharge,
+        emergencyCharge
+      };
+
+      if (!isEmergency) {
+        payload.workerId = worker._id || worker.id;
+      }
+
       const res = await fetch('http://localhost:5000/api/jobs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          workerId: worker._id || worker.id,
-          serviceType: worker.skills?.[0] || worker.title || 'General Service',
-          description: bookingDesc,
-          date: isEmergency ? 'Today' : bookingDate,
-          time: isEmergency ? 'ASAP' : formatTime12h(bookingTime),
-          preferredDateTime: preferredDateTimeISO,
-          estimatedDuration: duration,
-          location: resolvedAddress,
-          serviceAddress: resolvedAddress,
-          ...(finalCustomerLocation ? { customerLocation: finalCustomerLocation } : {}),
-          isEmergency,
-          serviceCharge,
-          emergencyCharge
-        })
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
+        const createdJob = await res.json().catch(() => ({}));
         setShowBookingModal(false);
         setCustomerCoordinates(null);
         setGpsStatus({ loading: false, error: null, success: false });
-        alert(isEmergency ? '🚨 Emergency request sent to worker with priority notification! Please await worker confirmation.' : '✅ Booking request sent successfully! The worker has been notified.');
-        navigate('/app/bookings');
+        if (isEmergency) {
+          alert('🚨 Emergency request broadcast! Redirecting to live emergency radar tracking...');
+          navigate('/app/emergency');
+        } else {
+          alert('✅ Booking request sent successfully! The worker has been notified.');
+          navigate('/app/bookings');
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         if (res.status === 401) {
@@ -1161,18 +1284,32 @@ export default function WorkerProfileView() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b', fontWeight: '700' }}>
                 <Star size={16} fill="#f59e0b" /> {worker.rating || 4.8} ({worker.reviewsCount || reviews.length} reviews)
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
-                <Briefcase size={16} color="var(--accent-primary)" /> {worker.experienceYears || 3} Years Experience
-              </span>
+              {/* Only show years of experience if worker decided to enter it via Edit Profile */}
+              {Number(worker.experienceYears) > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                  <Briefcase size={16} color="var(--accent-primary)" /> {worker.experienceYears} {Number(worker.experienceYears) === 1 ? 'Year' : 'Years'} Experience
+                </span>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '0.84rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                 <Zap size={13} color="var(--accent-primary)" /> Service Mode: {worker.serviceMode || 'Home Service'}
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
-                <DollarSign size={13} color="#10b981" /> Starting Price: ₹{worker.startingPrice !== undefined ? worker.startingPrice : (worker.hourlyRate || 500)} ({worker.pricingType || 'Hourly'})
-              </span>
+              {/* Only show minimum charge badge if worker explicitly set it via Edit Profile */}
+              {(() => {
+                const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+                  ? worker.minimumCharge
+                  : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                    ? worker.startingPrice
+                    : null;
+                if (!minCharge) return null;
+                return (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: '8px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    <DollarSign size={13} color="#10b981" /> Minimum Charge: ₹{minCharge.toLocaleString('en-IN')}
+                  </span>
+                );
+              })()}
             </div>
 
             {worker.bio && (
@@ -1211,7 +1348,14 @@ export default function WorkerProfileView() {
                   className="btn-primary" 
                   style={{ padding: '12px 28px', fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <Calendar size={18} /> Book Service (₹{worker.hourlyRate || 500}/hr)
+                  <Calendar size={18} /> Book Service{(() => {
+                    const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+                      ? worker.minimumCharge
+                      : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                        ? worker.startingPrice
+                        : null;
+                    return minCharge ? ` (Min. ₹${minCharge.toLocaleString('en-IN')})` : '';
+                  })()}
                 </button>
               </div>
             )}
@@ -1798,8 +1942,35 @@ export default function WorkerProfileView() {
 
             {/* Emergency Warning Banner */}
             {serviceMode === 'emergency' && (
-              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', padding: '12px 14px', borderRadius: '12px', marginBottom: '16px', fontSize: '0.84rem', color: '#dc2626', lineHeight: '1.4' }}>
-                🚨 <strong>Emergency Request:</strong> An urgent paid offer is sent directly to the worker with a <strong>5-minute response window</strong> and a ₹150 priority fee. Emergency offers can be sent even if the worker is currently busy.
+              <div style={{ background: '#fff5f5', border: '1px solid #fca5a5', padding: '14px', borderRadius: '14px', marginBottom: '16px', fontSize: '0.86rem', color: '#dc2626', lineHeight: '1.4' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', marginBottom: '6px' }}>
+                  <Zap size={18} color="#ef4444" /> Public Emergency Dispatch
+                </div>
+                <p style={{ margin: '0 0 10px 0', color: '#7f1d1d', fontSize: '0.84rem' }}>
+                  Emergency requests are broadcast publicly to <strong>all eligible verified professionals</strong> within expanding radius (2 km → 5 km → 10 km) for fastest response!
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookingModal(false);
+                    navigate(`/app/emergency?category=${encodeURIComponent(worker.skills?.[0] || 'Plumber')}`);
+                  }}
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  🚀 Open Emergency Radar Dispatch
+                </button>
               </div>
             )}
 
@@ -1970,26 +2141,41 @@ export default function WorkerProfileView() {
 
               {/* Price Breakdown */}
               <div style={{ background: 'var(--bg-tertiary)', padding: '14px 16px', borderRadius: '14px', fontSize: '0.88rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>
-                    Standard Rate (₹{worker.hourlyRate || 500}/hr {serviceMode === 'normal' ? `× ${estimatedDuration} mins` : ''}):
-                  </span>
-                  <span style={{ fontWeight: '600' }}>
-                    ₹{serviceMode === 'normal' ? Math.round((worker.hourlyRate || 500) * (estimatedDuration / 60)) : (worker.hourlyRate || 500)}
-                  </span>
-                </div>
+                {(() => {
+                  const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+                    ? worker.minimumCharge
+                    : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                      ? worker.startingPrice
+                      : null;
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {minCharge ? 'Base Minimum Charge:' : 'Service Pricing:'}
+                      </span>
+                      <span style={{ fontWeight: '600' }}>
+                        {minCharge ? `₹${minCharge.toLocaleString('en-IN')}` : 'Agreed after inspection'}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {serviceMode === 'emergency' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#ef4444' }}>
-                    <span>Emergency Priority Surcharge (5m response):</span>
-                    <span style={{ fontWeight: '700' }}>+₹150</span>
+                    <span>Emergency Priority Surcharge:</span>
+                    <span style={{ fontWeight: '700' }}>10% of agreed labor</span>
                   </div>
                 )}
                 <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '8px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-                  <span>Total Estimated Amount:</span>
+                  <span>Estimated Total:</span>
                   <span style={{ color: serviceMode === 'emergency' ? '#ef4444' : 'var(--accent-primary)' }}>
-                    ₹{serviceMode === 'emergency' 
-                      ? ((worker.hourlyRate || 500) + 150) 
-                      : Math.round((worker.hourlyRate || 500) * (estimatedDuration / 60))}
+                    {(() => {
+                      const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+                        ? worker.minimumCharge
+                        : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                          ? worker.startingPrice
+                          : null;
+                      if (!minCharge) return 'Confirmed on Quotation';
+                      return `From ₹${minCharge.toLocaleString('en-IN')}`;
+                    })()}
                   </span>
                 </div>
               </div>
@@ -3019,25 +3205,29 @@ export default function WorkerProfileView() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '4px' }}>
                     Years of Experience
                   </label>
                   <input
                     type="number"
                     min="0"
                     max="70"
+                    placeholder="e.g. 5 (Optional - only shown if set)"
                     value={editForm.experienceYears}
                     onChange={e => setEditForm(prev => ({ ...prev, experienceYears: e.target.value }))}
                     className="input-field"
                     style={{ width: '100%', borderRadius: '10px', height: '42px' }}
                   />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Leave blank to hide from your profile card
+                  </span>
                 </div>
               </div>
 
-              {/* Grid 4: Service Mode, Pricing Type, Starting Price, Radius */}
+              {/* Grid 4: Service Mode, Pricing Type, Minimum Charge, Radius */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '4px' }}>
                     Service Mode
                   </label>
                   <select
@@ -3053,8 +3243,8 @@ export default function WorkerProfileView() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
-                    Pricing Type
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '4px' }}>
+                    Pricing Structure
                   </label>
                   <select
                     value={editForm.pricingType}
@@ -3062,31 +3252,36 @@ export default function WorkerProfileView() {
                     className="input-field"
                     style={{ width: '100%', borderRadius: '10px', height: '42px' }}
                   >
-                    <option value="Hourly">Hourly</option>
-                    <option value="Fixed">Fixed</option>
+                    <option value="Custom">Inspection Based / Custom</option>
+                    <option value="Fixed">Fixed Quote</option>
                     <option value="Per Visit">Per Visit</option>
-                    <option value="Per Session">Per Session</option>
                     <option value="Per Project">Per Project</option>
-                    <option value="Custom">Custom</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
-                    Starting Price (₹)
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '4px' }}>
+                    Minimum Charge (₹)
                   </label>
                   <input
                     type="number"
                     min="0"
+                    placeholder="e.g. 350 (Optional)"
                     value={editForm.startingPrice}
-                    onChange={e => setEditForm(prev => ({ ...prev, startingPrice: e.target.value }))}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditForm(prev => ({ ...prev, startingPrice: val, minimumCharge: val }));
+                    }}
                     className="input-field"
                     style={{ width: '100%', borderRadius: '10px', height: '42px' }}
                   />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Leave blank to hide charge from your profile card
+                  </span>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '4px' }}>
                     Service Radius
                   </label>
                   <select
@@ -3265,9 +3460,73 @@ export default function WorkerProfileView() {
 
                 {/* Leaflet Interactive Map Picker */}
                 {showMapInModal && (
-                  <div style={{ marginTop: '8px' }}>
+                  <div style={{ marginTop: '10px' }}>
+                    {/* Quick Search & Locality Jumper */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Search area/locality (e.g. Nadakkavu, Mavoor Road, Beach)..."
+                        value={mapSearchQuery}
+                        onChange={e => setMapSearchQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSearchPlaceOnMap();
+                          }
+                        }}
+                        className="input-field"
+                        style={{ flex: 1, height: '36px', fontSize: '0.84rem', borderRadius: '8px' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchPlaceOnMap}
+                        disabled={searchingPlace}
+                        className="btn-primary"
+                        style={{ height: '36px', padding: '0 14px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: '700', whiteSpace: 'nowrap' }}
+                      >
+                        {searchingPlace ? 'Searching...' : 'Jump to Place'}
+                      </button>
+                    </div>
+
+                    {/* Kozhikode Locality Quick Chips */}
                     <div style={{ 
-                      height: '240px', 
+                      display: 'flex', 
+                      gap: '6px', 
+                      overflowX: 'auto', 
+                      paddingBottom: '8px', 
+                      marginBottom: '8px',
+                      scrollbarWidth: 'thin'
+                    }}>
+                      {KOZHIKODE_PRESETS.map(loc => {
+                        const isSelected = Math.abs(editForm.locationCoords.lat - loc.lat) < 0.003 && Math.abs(editForm.locationCoords.lng - loc.lng) < 0.003;
+                        return (
+                          <button
+                            key={loc.name}
+                            type="button"
+                            onClick={() => handleSelectPresetLocality(loc)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '16px',
+                              fontSize: '0.74rem',
+                              fontWeight: isSelected ? '800' : '600',
+                              whiteSpace: 'nowrap',
+                              border: isSelected ? '1px solid var(--accent-primary)' : '1px solid #cbd5e1',
+                              background: isSelected ? 'var(--accent-light)' : '#ffffff',
+                              color: isSelected ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <span>📍</span> {loc.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ 
+                      height: '250px', 
                       width: '100%', 
                       borderRadius: '12px', 
                       overflow: 'hidden', 
@@ -3285,9 +3544,7 @@ export default function WorkerProfileView() {
                         />
                         <ServiceLocationPickerMap
                           markerPos={editForm.locationCoords}
-                          onPositionChange={(newPos) => {
-                            setEditForm(prev => ({ ...prev, locationCoords: newPos }));
-                          }}
+                          onPositionChange={handleMapPositionChange}
                         />
                       </MapContainer>
                     </div>
@@ -3298,10 +3555,12 @@ export default function WorkerProfileView() {
                       alignItems: 'center', 
                       marginTop: '8px', 
                       fontSize: '0.78rem', 
-                      color: 'var(--text-secondary)' 
+                      color: 'var(--text-secondary)',
+                      flexWrap: 'wrap',
+                      gap: '6px'
                     }}>
                       <span>
-                        💡 Click anywhere on map or drag the <b>"Service Location"</b> marker.
+                        💡 Click anywhere on the map or drag the <b>location pin</b> to pinpoint your service location.
                       </span>
                       <span style={{ fontFamily: 'monospace', background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px', fontWeight: '600' }}>
                         GeoJSON: [{editForm.locationCoords.lng.toFixed(4)}, {editForm.locationCoords.lat.toFixed(4)}]

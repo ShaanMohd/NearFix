@@ -18,6 +18,7 @@ import {
   X, 
   AlertCircle 
 } from 'lucide-react';
+import Avatar from '../../components/Avatar';
 
 export default function ComplaintDetail() {
   const { complaintId } = useParams();
@@ -231,10 +232,10 @@ export default function ComplaintDetail() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-            <img 
-              src={customer.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&h=100'} 
-              alt={customer.name} 
-              style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+            <Avatar 
+              src={customer.avatar} 
+              name={customer.name || 'Customer'} 
+              size={48} 
             />
             <div>
               <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>
@@ -266,10 +267,10 @@ export default function ComplaintDetail() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-            <img 
-              src={worker.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=100&h=100'} 
-              alt={worker.name} 
-              style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+            <Avatar 
+              src={worker.avatar} 
+              name={worker.name || 'Worker'} 
+              size={48} 
             />
             <div>
               <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-primary)' }}>

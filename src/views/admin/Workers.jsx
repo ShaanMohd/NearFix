@@ -388,7 +388,7 @@ export default function Workers() {
               </div>
               <div style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Experience</span>
-                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{selectedWorker.experienceYears ? `${selectedWorker.experienceYears} Years` : '5 Years'}</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>{Number(selectedWorker.experienceYears) > 0 ? `${selectedWorker.experienceYears} Years` : 'Not specified'}</div>
               </div>
               <div style={{ background: 'var(--bg-primary)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Complaints</span>

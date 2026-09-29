@@ -17,6 +17,7 @@ import WorkerProfileView from './views/WorkerProfileView';
 import WorkerHome from './views/WorkerHome';
 import WorkerBookingsView from './views/WorkerBookingsView';
 import WorkerScheduleView from './views/WorkerScheduleView';
+import EmergencyDispatchView from './views/EmergencyDispatchView';
 
 // Admin Views
 import AdminDashboard from './views/admin/AdminDashboard';
@@ -64,6 +65,7 @@ function App() {
           <Route index element={<CustomerHomeGuard><HomeView /></CustomerHomeGuard>} />
           <Route path="map" element={<CustomerMapGuard><MapView /></CustomerMapGuard>} />
           <Route path="bookings" element={<CustomerProtectedGuard><MyBookingsView /></CustomerProtectedGuard>} />
+          <Route path="emergency" element={<CustomerProtectedGuard><EmergencyDispatchView /></CustomerProtectedGuard>} />
           <Route path="notifications" element={<NotificationsView />} />
           <Route path="profile" element={<CustomerProtectedGuard><ProfileView /></CustomerProtectedGuard>} />
           <Route path="worker/:id" element={<WorkerProfileView />} />

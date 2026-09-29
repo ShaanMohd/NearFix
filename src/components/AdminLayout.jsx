@@ -14,6 +14,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import Avatar from './Avatar';
 import { resolveAvatarUrl } from '../utils/avatar';
 
 export default function AdminLayout() {
@@ -27,6 +28,23 @@ export default function AdminLayout() {
   });
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('http://localhost:5000/api/users/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && (data.user || data._id)) {
+            const userObj = data.user || data;
+            setAdminProfile(userObj);
+            localStorage.setItem('adminProfile', JSON.stringify(userObj));
+            localStorage.setItem('userProfile', JSON.stringify(userObj));
+          }
+        })
+        .catch(() => {});
+    }
+
     const handleStorageChange = () => {
       const updated = JSON.parse(localStorage.getItem('adminProfile') || localStorage.getItem('userProfile') || '{}');
       setAdminProfile(updated);
@@ -240,10 +258,11 @@ export default function AdminLayout() {
               onClick={() => navigate('/admin/settings')} 
               style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 6px', borderRadius: '10px' }}
             >
-              <img 
-                src={adminAvatar} 
-                alt={adminName} 
-                style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--accent-light)' }} 
+              <Avatar 
+                src={adminProfile.avatar} 
+                name={adminName} 
+                size={34} 
+                style={{ border: '2px solid var(--accent-light)' }} 
               />
               <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', display: 'none' }} className="desktop-header-actions">
                 {adminName}

@@ -420,16 +420,26 @@ export default function MapComponent({
                     </span>
                   </div>
 
-                  <p
-                    style={{
-                      margin: '4px 0',
-                      fontWeight: '800',
-                      color: '#16a34a',
-                      fontSize: '0.95rem'
-                    }}
-                  >
-                    ₹{worker.hourlyRate || 500}/hr
-                  </p>
+                  {(() => {
+                    const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+                      ? worker.minimumCharge
+                      : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                        ? worker.startingPrice
+                        : null;
+                    if (!minCharge) return null;
+                    return (
+                      <p
+                        style={{
+                          margin: '4px 0',
+                          fontWeight: '800',
+                          color: '#16a34a',
+                          fontSize: '0.95rem'
+                        }}
+                      >
+                        Min. ₹{minCharge.toLocaleString('en-IN')}
+                      </p>
+                    );
+                  })()}
 
                   {distance != null && (
                     <p

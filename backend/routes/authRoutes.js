@@ -50,10 +50,10 @@ const isValidPassword = (password) => {
 // ==========================================
 
 // @route   POST /api/auth/worker/aadhaar/send-otp
-// @desc    Validate 12-digit demo Aadhaar, check registry, generate and hash 6-digit mock OTP
+// @desc    Validate 12-digit dummy Aadhaar, generate and hash 6-digit mock OTP for academic simulation
 router.post('/worker/aadhaar/send-otp', async (req, res) => {
   try {
-    const { aadhaarNumber } = req.body;
+    const { aadhaarNumber, phone } = req.body;
 
     if (!aadhaarNumber) {
       return res.status(400).json({ message: 'Aadhaar number is required.' });
@@ -68,23 +68,15 @@ router.post('/worker/aadhaar/send-otp', async (req, res) => {
 
     const aadhaarHash = hashAadhaar(normalizedAadhaar);
 
-    // 2. Check if this Aadhaar is already registered to an existing worker
+    // 2. Check if this dummy Aadhaar is already registered to an existing worker
     const existingWorker = await User.findOne({ 'aadhaarVerification.aadhaarHash': aadhaarHash });
     if (existingWorker) {
       return res.status(400).json({
-        message: 'This Aadhaar number is already linked to an existing registered service provider account.'
+        message: 'This Aadhaar number is already linked to an existing registered service provider account. Please use a different 12-digit dummy number for testing.'
       });
     }
 
-    // 3. Look up in Demo Aadhaar Registry
-    const demoRecord = findDemoAadhaar(aadhaarHash);
-    if (!demoRecord) {
-      return res.status(400).json({
-        message: 'Aadhaar not found in mock demo registry. For the academic prototype, please use a demo Aadhaar number (e.g. 1111 2222 3333, 4444 5555 6666, 9999 8888 7777, or 1234 1234 1234).'
-      });
-    }
-
-    // 4. Rate-limiting: Prevent rapid repeated OTP requests within cooldown window (45 seconds)
+    // 3. Rate-limiting: Prevent rapid repeated OTP requests within cooldown window (45 seconds)
     const latestOtp = await AadhaarOtpVerification.findOne({ aadhaarHash }).sort({ createdAt: -1 });
     if (latestOtp) {
       const secondsElapsed = (Date.now() - new Date(latestOtp.createdAt).getTime()) / 1000;
@@ -96,43 +88,47 @@ router.post('/worker/aadhaar/send-otp', async (req, res) => {
       }
     }
 
-    // 5. Generate secure 6-digit OTP using crypto.randomInt
+    // 4. Generate secure 6-digit OTP using crypto.randomInt
     const otp = crypto.randomInt(100000, 1000000).toString();
 
-    // 6. Hash OTP before storing
+    // 5. Hash OTP before storing
     const salt = await bcrypt.genSalt(10);
     const otpHash = await bcrypt.hash(otp, salt);
 
-    // 7. Expire after 5 minutes
+    // 6. Expire after 5 minutes
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    // 8. Clean up prior unverified attempts for this Aadhaar and save new record
+    const linkedPhoneLast4 = phone ? String(phone).replace(/\D/g, '').slice(-4) : normalizedAadhaar.slice(-4);
+    const maskedPhone = `******${linkedPhoneLast4}`;
+
+    // 7. Clean up prior unverified attempts for this Aadhaar and save new record
     await AadhaarOtpVerification.deleteMany({ aadhaarHash });
     await AadhaarOtpVerification.create({
       aadhaarHash,
-      phoneLast4: demoRecord.phone.slice(-4),
+      phoneLast4: linkedPhoneLast4,
       otpHash,
       expiresAt,
       attempts: 0
     });
-
-    const maskedPhone = `******${demoRecord.phone.slice(-4)}`;
 
     // In local development / academic demo, log the OTP to the console
     if (process.env.NODE_ENV !== 'production') {
       console.log(`\n========================================`);
       console.log(`[NearFix MOCK AADHAAR OTP SERVICE]`);
       console.log(`Simulated Aadhaar: ${normalizedAadhaar.slice(0, 4)} XXXX ${normalizedAadhaar.slice(-4)}`);
-      console.log(`Linked Phone: ${maskedPhone} (${demoRecord.name})`);
-      console.log(`6-Digit Aadhaar OTP: ${otp}`);
-      console.log(`Notice: Identity verification is simulated for the academic prototype.`);
+      console.log(`Linked Phone: ${maskedPhone}`);
+      console.log(`6-Digit Demo Aadhaar OTP: ${otp}`);
+      console.log(`Notice: Academic simulation only. No UIDAI verification or real SMS is performed.`);
       console.log(`========================================\n`);
     }
 
+    // Safe DEMO_MODE check: enabled in non-production or when explicitly configured
+    const isDemoMode = process.env.DEMO_MODE === 'true' || (process.env.NODE_ENV !== 'production');
+
     return res.json({
-      message: `Verification code sent to demo Aadhaar-linked mobile number ending in ${demoRecord.phone.slice(-4)}.`,
+      message: `Demo verification code generated for simulation.`,
       maskedPhone,
-      demoOtp: (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DEMO_OTP === 'true') ? otp : undefined
+      demoOtp: isDemoMode ? otp : undefined
     });
 
   } catch (err) {
@@ -382,7 +378,7 @@ router.post('/register', async (req, res) => {
       emailVerificationToken,
       aadhaarVerificationToken,
       name, email, password, role, phone, address, location, 
-      category, skill, title, skills, hourlyRate, experienceYears, serviceRadius, availabilityHours 
+      category, skill, title, skills, hourlyRate, startingPrice, minimumCharge, experienceYears, serviceRadius, availabilityHours 
     } = req.body;
 
     // 1. Role restriction: Public registration strictly permits 'customer' or 'worker'
@@ -549,9 +545,10 @@ router.post('/register', async (req, res) => {
       address: userAddress,
       location: userLocation,
       title: title || (workerSkills.length > 0 ? workerSkills[0] : (targetRole === 'worker' ? 'Professional Service Provider' : undefined)),
-      skills: workerSkills,
-      hourlyRate: hourlyRate || 500,
-      experienceYears: experienceYears || 2,
+      hourlyRate: Number(hourlyRate || 0) || 0,
+      startingPrice: Number(startingPrice || 0) || 0,
+      minimumCharge: Number(minimumCharge || 0) || 0,
+      experienceYears: Number(experienceYears || 0) || 0,
       serviceRadius: serviceRadius || '15 km',
       availabilityHours: availabilityHours || '9:00 AM - 6:00 PM',
       verificationStatus: targetRole === 'worker' ? 'Pending' : 'Verified',

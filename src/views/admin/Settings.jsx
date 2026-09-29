@@ -10,6 +10,7 @@ import {
   Save,
   Camera,
   Upload,
+  Trash2,
   X
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../utils/avatar';
@@ -112,6 +113,40 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
       setAvatarError('Network error uploading photo: ' + err.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    setAvatarError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/users/me/avatar', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAvatar('');
+        const updated = { ...adminProfile, avatar: '' };
+        setAdminProfile(updated);
+        localStorage.setItem('adminProfile', JSON.stringify(updated));
+        localStorage.setItem('userProfile', JSON.stringify(updated));
+        window.dispatchEvent(new Event('storage'));
+        setShowAvatarModal(false);
+        setAvatarFile(null);
+        setAvatarPreview('');
+        showToast('success', 'Profile photo removed successfully.');
+      } else {
+        setAvatarError(data.message || 'Failed to remove profile photo.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAvatarError('Network error removing photo: ' + err.message);
     } finally {
       setUploadingAvatar(false);
     }
@@ -295,7 +330,7 @@ export default function Settings() {
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setShowAvatarModal(true)}
@@ -310,8 +345,29 @@ export default function Settings() {
                     borderRadius: '10px'
                   }}
                 >
-                  <Camera size={15} /> Change Profile Photo
+                  <Camera size={15} /> {avatar ? 'Change Profile Photo' : 'Upload Profile Photo'}
                 </button>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      borderRadius: '10px',
+                      color: 'var(--error)',
+                      borderColor: 'rgba(239, 68, 68, 0.2)'
+                    }}
+                  >
+                    <Trash2 size={15} /> Remove Photo
+                  </button>
+                )}
               </div>
               <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                 JPG, PNG or WebP up to 5 MB. Updates header and profile immediately.
@@ -592,31 +648,55 @@ export default function Settings() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setShowAvatarModal(false);
-                  setAvatarFile(null);
-                  setAvatarPreview('');
-                }}
-                disabled={uploadingAvatar}
-                style={{ padding: '10px 18px', borderRadius: '12px' }}
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '10px 16px',
+                      borderRadius: '12px',
+                      color: 'var(--error)',
+                      borderColor: 'rgba(239, 68, 68, 0.2)'
+                    }}
+                  >
+                    <Trash2 size={16} /> Remove Current Photo
+                  </button>
+                )}
+              </div>
 
-              <button 
-                type="button"
-                className="btn-primary"
-                onClick={handleSaveAvatar}
-                disabled={uploadingAvatar || !avatarFile}
-                style={{ padding: '10px 22px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-              >
-                {uploadingAvatar && <Loader2 size={16} className="animate-spin" />}
-                {uploadingAvatar ? 'Uploading...' : 'Save Photo'}
-              </button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowAvatarModal(false);
+                    setAvatarFile(null);
+                    setAvatarPreview('');
+                  }}
+                  disabled={uploadingAvatar}
+                  style={{ padding: '10px 18px', borderRadius: '12px' }}
+                >
+                  Cancel
+                </button>
+
+                <button 
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSaveAvatar}
+                  disabled={uploadingAvatar || !avatarFile}
+                  style={{ padding: '10px 22px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {uploadingAvatar && <Loader2 size={16} className="animate-spin" />}
+                  {uploadingAvatar ? 'Uploading...' : 'Save Photo'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

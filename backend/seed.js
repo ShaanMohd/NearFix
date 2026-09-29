@@ -44,7 +44,7 @@ async function seedData(options = {}) {
     phone: '+91 9999900000',
     address: 'Kozhikode HQ, Kerala',
     location: { type: 'Point', coordinates: [75.7804, 11.2588] },
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200'
+    avatar: ''
   });
   await adminUser.save();
 
@@ -57,7 +57,7 @@ async function seedData(options = {}) {
     phone: '+91 9876543210',
     address: 'Mavoor Road, Kozhikode, Kerala',
     location: { type: 'Point', coordinates: [75.7800, 11.2580] },
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&h=200'
+    avatar: ''
   });
   await customer1.save();
 
@@ -69,7 +69,7 @@ async function seedData(options = {}) {
     phone: '+91 9876543211',
     address: 'Palayam, Kozhikode, Kerala',
     location: { type: 'Point', coordinates: [75.7900, 11.2660] },
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&h=200'
+    avatar: ''
   });
   await customer2.save();
 
@@ -94,7 +94,7 @@ async function seedData(options = {}) {
     experienceYears: 7,
     serviceRadius: '15 km',
     availabilityHours: '8:00 AM - 8:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=400&h=400',
+    avatar: '',
     documents: {
       identityProof: 'Aadhaar Card (rajesh_aadhaar.pdf)',
       addressProof: 'Electricity Bill (rajesh_address.pdf)',
@@ -123,7 +123,7 @@ async function seedData(options = {}) {
     experienceYears: 9,
     serviceRadius: '20 km',
     availabilityHours: '9:00 AM - 7:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?auto=format&fit=crop&w=400&h=400',
+    avatar: '',
     documents: {
       identityProof: 'Passport (marcus_passport.pdf)',
       addressProof: 'Rental Agreement (marcus_rent.pdf)',
@@ -151,7 +151,7 @@ async function seedData(options = {}) {
     experienceYears: 5,
     serviceRadius: '12 km',
     availabilityHours: '9:00 AM - 6:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&h=400',
+    avatar: '',
     documents: {
       identityProof: 'Aadhaar Card (elena_aadhaar.pdf)',
       addressProof: 'Utility Bill (elena_bill.pdf)',
@@ -179,7 +179,7 @@ async function seedData(options = {}) {
     experienceYears: 12,
     serviceRadius: '25 km',
     availabilityHours: '9:00 AM - 6:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=400&h=400',
+    avatar: '',
     documents: {
       identityProof: 'Aadhaar Card (sanjeev_aadhaar.pdf)',
       addressProof: 'Tax Receipt (sanjeev_tax.pdf)',
@@ -208,7 +208,7 @@ async function seedData(options = {}) {
     experienceYears: 5,
     serviceRadius: '15 km',
     availabilityHours: '8:30 AM - 7:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&h=200',
+    avatar: '',
     documents: {
       identityProof: 'Aadhaar Card (rahul_aadhaar.pdf)',
       addressProof: 'Electricity Bill (rahul_bill.pdf)',
@@ -237,7 +237,7 @@ async function seedData(options = {}) {
     experienceYears: 3,
     serviceRadius: '10 km',
     availabilityHours: '9:00 AM - 6:00 PM',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&h=200',
+    avatar: '',
     documents: {
       identityProof: 'Voter ID Card (ananth_voter_id.pdf)',
       addressProof: 'Registered Rental Deed (ananth_rent.pdf)',
@@ -265,7 +265,7 @@ async function seedData(options = {}) {
     accountStatus: 'Suspended',
     experienceYears: 2,
     serviceRadius: '10 km',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&h=200',
+    avatar: '',
     rejectionReason: 'Multiple customer complaints of overcharging and unfulfilled appointments'
   });
 

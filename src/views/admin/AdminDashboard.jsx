@@ -13,6 +13,7 @@ import {
   Loader2,
   ChevronRight
 } from 'lucide-react';
+import Avatar from '../../components/Avatar';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -322,10 +323,10 @@ export default function AdminDashboard() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <img 
-                      src={worker.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&h=100'} 
-                      alt={worker.name} 
-                      style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }}
+                    <Avatar 
+                      src={worker.avatar} 
+                      name={worker.name} 
+                      size={44} 
                     />
                     <div>
                       <div style={{ fontWeight: '700', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
@@ -334,7 +335,7 @@ export default function AdminDashboard() {
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                         <span style={{ fontWeight: '600', color: 'var(--accent-primary)' }}>{worker.skills?.[0] || 'Specialist'}</span>
                         <span>•</span>
-                        <span>{worker.experienceYears ? `${worker.experienceYears} Years Exp` : '3 Years Exp'}</span>
+                        <span>{Number(worker.experienceYears) > 0 ? `${worker.experienceYears} Years Exp` : 'Exp Not set'}</span>
                         <span>•</span>
                         <span>{worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}</span>
                       </div>

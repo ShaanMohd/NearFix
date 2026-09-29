@@ -11,7 +11,7 @@ const JobRequestSchema = new mongoose.Schema({
   workerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    default: null
   },
 
   serviceType: {
@@ -53,8 +53,7 @@ const JobRequestSchema = new mongoose.Schema({
   customerLocation: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ['Point']
     },
     coordinates: [Number]
   },
@@ -62,6 +61,7 @@ const JobRequestSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
+      'Open',
       'Pending',
       'Accepted',
       'EmergencyAcceptedPendingCustomer',
@@ -105,6 +105,29 @@ const JobRequestSchema = new mongoose.Schema({
     type: Date
   },
 
+  // Progressive Radius & Public Emergency Dispatch Fields
+  broadcastRadius: {
+    type: Number,
+    default: 2000 // In meters: 2000 (2km), 5000 (5km), 10000 (10km)
+  },
+
+  notifiedWorkerIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+
+  searchExpiresAt: {
+    type: Date
+  },
+
+  claimedAt: {
+    type: Date
+  },
+
+  confirmationExpiresAt: {
+    type: Date
+  },
+
   proposedAlternative: {
     dateTime: { type: Date },
     date: { type: String },
@@ -116,6 +139,26 @@ const JobRequestSchema = new mongoose.Schema({
   isEmergency: {
     type: Boolean,
     default: false
+  },
+
+  emergencySurchargePercent: {
+    type: Number,
+    default: null
+  },
+
+  customerAcceptedSurcharge: {
+    type: Boolean,
+    default: false
+  },
+
+  laborCharge: {
+    type: Number,
+    default: null
+  },
+
+  materialCost: {
+    type: Number,
+    default: 0
   },
 
   serviceCharge: {
@@ -130,7 +173,21 @@ const JobRequestSchema = new mongoose.Schema({
 
   totalAmount: {
     type: Number,
-    default: 0
+    default: null
+  },
+
+  quotationStatus: {
+    type: String,
+    enum: ['Pending', 'Submitted', 'Approved', 'Declined'],
+    default: 'Pending'
+  },
+
+  quotationSubmittedAt: {
+    type: Date
+  },
+
+  quotationApprovedAt: {
+    type: Date
   },
 
   workerNote: {
@@ -145,5 +202,8 @@ const JobRequestSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+JobRequestSchema.index({ customerLocation: '2dsphere' }, { sparse: true });
+JobRequestSchema.index({ status: 1, isEmergency: 1 });
 
 module.exports = mongoose.model('JobRequest', JobRequestSchema);

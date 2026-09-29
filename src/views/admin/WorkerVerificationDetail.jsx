@@ -20,6 +20,7 @@ import {
   Download,
   Image as ImageIcon
 } from 'lucide-react';
+import Avatar from '../../components/Avatar';
 
 export default function WorkerVerificationDetail() {
   const { workerId } = useParams();
@@ -207,13 +208,6 @@ export default function WorkerVerificationDetail() {
     }
   ];
 
-  const portfolioImages = worker.portfolio && worker.portfolio.length > 0 
-    ? worker.portfolio 
-    : [
-        'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&h=450',
-        'https://images.unsplash.com/photo-1558346490-a72e53ae2d4f?auto=format&fit=crop&w=600&h=450',
-        'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=600&h=450'
-      ];
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -279,10 +273,11 @@ export default function WorkerVerificationDetail() {
         
         {/* Worker Header Details */}
         <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--border-glass)', paddingBottom: '28px' }}>
-          <img 
-            src={worker.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&h=200'} 
-            alt={worker.name} 
-            style={{ width: '90px', height: '90px', borderRadius: '20px', objectFit: 'cover', border: '2px solid var(--border-glass)' }}
+          <Avatar 
+            src={worker.avatar} 
+            name={worker.name} 
+            size={90}
+            style={{ borderRadius: '20px', border: '2px solid var(--border-glass)' }}
           />
 
           <div style={{ flex: 1, minWidth: '240px' }}>
@@ -303,7 +298,7 @@ export default function WorkerVerificationDetail() {
           <div style={{ display: 'flex', gap: '16px', background: 'var(--bg-primary)', padding: '14px 20px', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Experience</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{worker.experienceYears ? `${worker.experienceYears} Years` : '5 Years'}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{Number(worker.experienceYears) > 0 ? `${worker.experienceYears} Years` : 'Not specified'}</div>
             </div>
             <div style={{ width: '1px', background: 'var(--border-glass)' }}></div>
             <div>
@@ -312,8 +307,8 @@ export default function WorkerVerificationDetail() {
             </div>
             <div style={{ width: '1px', background: 'var(--border-glass)' }}></div>
             <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Rate</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)' }}>₹{worker.hourlyRate || 500}/hr</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>Min. Charge</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)' }}>{(worker.minimumCharge > 0 || worker.startingPrice > 0) ? `₹${worker.minimumCharge || worker.startingPrice}` : 'Not set'}</div>
             </div>
           </div>
         </div>
@@ -554,36 +549,6 @@ export default function WorkerVerificationDetail() {
         </div>
       </div>
 
-      {/* Portfolio Preview Gallery */}
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '6px' }}>
-          Portfolio Preview
-        </h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Previous on-site work and project images submitted by {worker.name}.
-        </p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px' }}>
-          {portfolioImages.map((imgUrl, i) => (
-            <div 
-              key={i} 
-              style={{ 
-                height: '160px', 
-                borderRadius: '16px', 
-                overflow: 'hidden', 
-                border: '1px solid var(--border-glass)',
-                position: 'relative'
-              }}
-            >
-              <img 
-                src={imgUrl} 
-                alt={`Work sample ${i+1}`} 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Admin Decision Bar */}
       <div 

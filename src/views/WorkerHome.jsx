@@ -87,8 +87,28 @@ export default function WorkerHome() {
     }
   };
 
+  const [openOffers, setOpenOffers] = useState([]);
+
+  const fetchOpenEmergencyOffers = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/jobs/emergency/open', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOpenOffers(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('Error fetching open emergency offers:', e);
+    }
+  };
+
   useEffect(() => {
     fetchJobsAndProfile();
+    fetchOpenEmergencyOffers();
+    const interval = setInterval(fetchOpenEmergencyOffers, 4000);
+    return () => clearInterval(interval);
   }, [token]);
 
   // Click on Availability Toggle
@@ -228,16 +248,44 @@ export default function WorkerHome() {
 
     setSubmittingArrival(true);
     setArrivalError('');
-    const res = await handleUpdateStatus(emergencyAcceptJob._id, 'EmergencyAcceptedPendingCustomer', {
-      estimatedArrivalTime: estimatedArrival.trim()
-    });
 
-    setSubmittingArrival(false);
-    if (res.success) {
-      setEmergencyAcceptJob(null);
-      alert('✅ Emergency offer accepted! Customer has been notified with your arrival ETA.');
+    if (emergencyAcceptJob.status === 'Open' || emergencyAcceptJob.isPublicOffer) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/jobs/${emergencyAcceptJob._id}/emergency-claim`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ estimatedArrivalTime: estimatedArrival.trim() })
+        });
+        const data = await res.json();
+        setSubmittingArrival(false);
+        if (res.ok) {
+          setEmergencyAcceptJob(null);
+          alert('✅ Emergency offer claimed successfully! The customer has been notified with your arrival ETA.');
+          fetchJobsAndProfile();
+          fetchOpenEmergencyOffers();
+        } else {
+          setArrivalError(data.message || 'Failed to claim emergency offer.');
+          fetchOpenEmergencyOffers();
+        }
+      } catch (err) {
+        setSubmittingArrival(false);
+        setArrivalError('Network error: ' + err.message);
+      }
     } else {
-      setArrivalError(res.message || 'Failed to accept emergency offer.');
+      const res = await handleUpdateStatus(emergencyAcceptJob._id, 'EmergencyAcceptedPendingCustomer', {
+        estimatedArrivalTime: estimatedArrival.trim()
+      });
+
+      setSubmittingArrival(false);
+      if (res.success) {
+        setEmergencyAcceptJob(null);
+        alert('✅ Emergency offer accepted! Customer has been notified with your arrival ETA.');
+      } else {
+        setArrivalError(res.message || 'Failed to accept emergency offer.');
+      }
     }
   };
 
@@ -404,6 +452,95 @@ export default function WorkerHome() {
         </div>
       </div>
 
+      {/* Available Public Emergency Offers Section */}
+      {openOffers.length > 0 && (
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444', animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: '#dc2626' }}>
+              Available Emergency Offers ({openOffers.length})
+            </h2>
+            <span style={{ fontSize: '0.8rem', background: '#fef2f2', border: '1px solid #fca5a5', color: '#ef4444', padding: '2px 8px', borderRadius: '8px', fontWeight: '700' }}>
+              High Priority • First Come First Served
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {openOffers.map(offer => {
+              const mins = Math.floor((offer.secondsRemaining || 0) / 60);
+              const secs = (offer.secondsRemaining || 0) % 60;
+
+              return (
+                <div 
+                  key={offer._id}
+                  className="glass-panel"
+                  style={{
+                    padding: '20px 24px',
+                    borderRadius: '18px',
+                    borderLeft: '6px solid #ef4444',
+                    background: '#fff5f5',
+                    boxShadow: '0 4px 20px rgba(239,68,68,0.12)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fee2e2', color: '#b91c1c', padding: '3px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '800', marginBottom: '6px' }}>
+                        🚨 {offer.serviceType} Emergency
+                      </div>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '800' }}>
+                        "{offer.description}"
+                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <span>📍 {offer.serviceArea}</span>
+                        <span>•</span>
+                        <strong style={{ color: '#059669' }}>🧭 ~{offer.distanceKm} km away</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-primary)' }}>
+                        ₹{offer.totalAmount}
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: '700' }}>
+                        (incl. ₹150 Emergency Surcharge)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderTop: '1px solid rgba(239,68,68,0.15)', paddingTop: '12px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={16} /> Time Remaining: {mins}m {String(secs).padStart(2, '0')}s
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        setEmergencyAcceptJob({ ...offer, isPublicOffer: true });
+                        setEstimatedArrival('15-20 mins');
+                        setArrivalError('');
+                      }}
+                      className="btn-primary"
+                      style={{
+                        background: '#ef4444',
+                        padding: '8px 22px',
+                        fontSize: '0.88rem',
+                        fontWeight: '800',
+                        borderRadius: '10px',
+                        boxShadow: '0 2px 8px rgba(239,68,68,0.3)'
+                      }}
+                    >
+                      Accept Offer & Enter ETA →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Pending Booking Requests Section */}
       <div style={{ marginBottom: '32px' }}>
         <h2 style={{ fontSize: '1.3rem', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -542,6 +679,7 @@ export default function WorkerHome() {
                       customerLocation={req.customerLocation}
                       serviceAddress={req.serviceAddress || req.location}
                       customerName={req.customerId?.name || 'Customer'}
+                      workerLocation={req.workerId?.location || req.workerId?.currentLocation}
                     />
                   )}
 
@@ -668,14 +806,56 @@ export default function WorkerHome() {
                   <MapPin size={13} style={{ display: 'inline', marginRight: '4px' }} /> {b.serviceAddress || b.location}
                 </div>
 
+                {b.isEmergency && (
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '10px', fontSize: '0.84rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      {b.quotationStatus === 'Approved' ? (
+                        <span style={{ color: '#047857', fontWeight: '700' }}>
+                          ✅ Approved Quotation: Total ₹{b.totalAmount} (Labor ₹{b.laborCharge} + 10% Surcharge ₹{b.emergencyCharge}{b.materialCost > 0 ? ` + Mat. ₹${b.materialCost}` : ''})
+                        </span>
+                      ) : b.quotationStatus === 'Submitted' ? (
+                        <span style={{ color: '#1d4ed8', fontWeight: '700' }}>
+                          📋 Quotation Submitted (₹{b.totalAmount}) • Awaiting Customer Approval
+                        </span>
+                      ) : b.quotationStatus === 'Declined' ? (
+                        <span style={{ color: '#dc2626', fontWeight: '700' }}>
+                          ⚠️ Quotation Declined by Customer • Please revise in Bookings
+                        </span>
+                      ) : (
+                        <span style={{ color: '#b45309', fontWeight: '700' }}>
+                          📋 Inspection & Quotation Pending (+10% Surcharge applies)
+                        </span>
+                      )}
+                    </div>
+                    {b.quotationStatus !== 'Approved' && (
+                      <button
+                        onClick={() => navigate('/worker/bookings')}
+                        className="btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '0.8rem', background: '#dc2626' }}
+                      >
+                        Manage Quotation
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid var(--border-glass)', paddingTop: '10px' }}>
-                  <button 
-                    onClick={() => handleUpdateStatus(b._id, 'Completed')}
-                    className="btn-primary"
-                    style={{ padding: '6px 16px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600',
+                      color: '#059669',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      padding: '5px 12px',
+                      borderRadius: '8px'
+                    }}
                   >
-                    <CheckCircle2 size={15} /> Mark Service Completed
-                  </button>
+                    <Clock size={14} /> Service in Progress • Customer Confirms Completion
+                  </span>
                 </div>
               </div>
             ))}

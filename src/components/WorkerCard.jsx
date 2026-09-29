@@ -59,10 +59,21 @@ export default function WorkerCard({ worker }) {
           </p>
         </div>
         <div style={{ textAlign: 'right', marginLeft: 'auto', flexShrink: 0 }}>
-          <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '1.05rem' }}>
-            ₹{worker.hourlyRate || 500}
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>/hr</span>
-          </div>
+          {/* Only show minimum charge if the worker explicitly set it via Edit Profile */}
+          {(() => {
+            const minCharge = (typeof worker.minimumCharge === 'number' && worker.minimumCharge > 0)
+              ? worker.minimumCharge
+              : (typeof worker.startingPrice === 'number' && worker.startingPrice > 0)
+                ? worker.startingPrice
+                : null;
+            if (!minCharge) return null;
+            return (
+              <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '1.02rem', lineHeight: '1.2' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600', marginRight: '3px', textTransform: 'uppercase' }}>Min.</span>
+                ₹{minCharge.toLocaleString('en-IN')}
+              </div>
+            );
+          })()}
           <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.78rem', justifyContent: 'flex-end', marginTop: '2px' }}>
             <MapPin size={12} /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}
           </div>
@@ -70,6 +81,12 @@ export default function WorkerCard({ worker }) {
       </div>
 
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        {/* Only show years of experience tag if worker decided to enter it via Edit Profile */}
+        {Number(worker.experienceYears) > 0 && (
+          <span style={{ background: 'var(--accent-light)', color: 'var(--accent-primary)', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '8px', fontWeight: '600' }}>
+            {worker.experienceYears} {Number(worker.experienceYears) === 1 ? 'Yr' : 'Yrs'} Exp
+          </span>
+        )}
         {(worker.skills || []).slice(0, 3).map(skill => (
           <span key={skill} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '8px', fontWeight: '500' }}>
             {skill}

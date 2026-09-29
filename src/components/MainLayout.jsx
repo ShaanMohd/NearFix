@@ -10,7 +10,8 @@ import {
   Clock, 
   LogOut,
   LogIn,
-  ShieldCheck
+  ShieldCheck,
+  AlertOctagon
 } from 'lucide-react';
 
 export default function MainLayout() {
@@ -54,6 +55,7 @@ export default function MainLayout() {
     { path: '/app', icon: Home, label: 'Discover' },
     { path: '/app/map', icon: Map, label: 'Map View' },
     { path: '/app/bookings', icon: CalendarCheck, label: 'My Bookings' },
+    { path: '/app/emergency', icon: AlertOctagon, label: 'Emergency 🚨' },
     { path: '/app/notifications', icon: Bell, label: 'Notifications' },
     { path: '/app/profile', icon: User, label: 'My Profile' }
   ];

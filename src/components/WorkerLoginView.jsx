@@ -182,7 +182,7 @@ export default function WorkerLoginView() {
       const response = await fetch('http://localhost:5000/api/auth/worker/aadhaar/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aadhaarNumber: cleanAadhaar })
+        body: JSON.stringify({ aadhaarNumber: cleanAadhaar, phone: cleanPhone })
       });
 
       const data = await response.json();
@@ -216,7 +216,7 @@ export default function WorkerLoginView() {
       const response = await fetch('http://localhost:5000/api/auth/worker/aadhaar/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aadhaarNumber: cleanAadhaar })
+        body: JSON.stringify({ aadhaarNumber: cleanAadhaar, phone: cleanPhone })
       });
 
       const data = await response.json();
@@ -610,24 +610,31 @@ export default function WorkerLoginView() {
           registrationStep === 2 ? (
             /* STEP 2: Mock Aadhaar OTP Verification */
             <form onSubmit={handleVerifyAadhaarOtp} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '14px', borderRadius: '12px', fontSize: '0.88rem' }}>
+              <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '16px', borderRadius: '14px', fontSize: '0.88rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '4px' }}>
                   <Smartphone size={16} color="var(--success)" />
-                  <span>Aadhaar: {formData.aadhar.slice(0, 4)} XXXX {formData.aadhar.slice(-4)}</span>
+                  <span>Demo Aadhaar: {formData.aadhar.slice(0, 4)} XXXX {formData.aadhar.slice(-4)}</span>
                 </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  Demo code dispatched to mobile ending in <b>{maskedPhone.slice(-4) || '3210'}</b>.
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '4px' }}>
+                  Academic simulation only. Use dummy numbers. No UIDAI verification or real SMS is performed.
                 </div>
 
                 {demoAadhaarOtp && (
-                  <div style={{ marginTop: '10px', background: 'rgba(16,185,129,0.1)', padding: '8px 10px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--success)' }}>Simulated Demo OTP: <b>{demoAadhaarOtp}</b></span>
+                  <div style={{ marginTop: '12px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>
+                        Academic Demonstration OTP
+                      </div>
+                      <div style={{ fontSize: '1.25rem', color: 'var(--success)', fontWeight: '800', letterSpacing: '3px', marginTop: '2px' }}>
+                        {demoAadhaarOtp}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setAadhaarOtp(demoAadhaarOtp)}
-                      style={{ background: 'var(--success)', border: 'none', color: '#fff', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                      style={{ background: 'var(--success)', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: '6px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 'bold' }}
                     >
-                      Fill Code
+                      Auto-Fill Code
                     </button>
                   </div>
                 )}
@@ -777,15 +784,15 @@ export default function WorkerLoginView() {
                 )}
               </div>
 
-              {/* Aadhaar Input with Demo Hint */}
+              {/* Aadhaar Input with Academic Demo Hint */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label className="input-label" style={{ marginBottom: 0 }}>Aadhaar Number (12 Digits)</label>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Demo Prototype</span>
+                  <label className="input-label" style={{ marginBottom: 0 }}>Demo Aadhaar Number (12 Digits)</label>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Academic Simulation</span>
                 </div>
                 <input 
                   type="text" 
-                  placeholder="1111 2222 3333" 
+                  placeholder="1234 5678 9012" 
                   maxLength={14} 
                   inputMode="numeric" 
                   className="input-field" 
@@ -794,8 +801,11 @@ export default function WorkerLoginView() {
                   onChange={handleAadhaarChange} 
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  <span>Use demo: <b onClick={() => setFormData({...formData, aadhar: '1111 2222 3333'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>1111 2222 3333</b>, <b onClick={() => setFormData({...formData, aadhar: '9999 8888 7777'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>9999 8888 7777</b>, <b onClick={() => setFormData({...formData, aadhar: '1234 1234 1234'})} style={{ color: 'var(--success)', cursor: 'pointer', textDecoration: 'underline' }}>1234 1234 1234</b></span>
+                  <span>Use any unused 12-digit dummy number for this demonstration.</span>
                   <span>{cleanAadhaar.length}/12 digits</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Academic simulation only. Use dummy numbers. No UIDAI verification or real SMS is performed.
                 </div>
               </div>
 

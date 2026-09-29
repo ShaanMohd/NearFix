@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { resolveAvatarUrl, generateInitialsAvatar } from '../utils/avatar';
 
 /**
@@ -17,6 +17,10 @@ export default function Avatar({
   onClick
 }) {
   const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
 
   // If there was a loading error or no valid src was provided, render dynamic initials thumbnail
   const isSrcEmpty = !src || (typeof src === 'string' && src.trim() === '');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CalendarCheck, Clock, CheckCircle2, XCircle, 
-  MapPin, Loader2, Zap, Phone, AlertOctagon, Calendar, X
+  MapPin, Loader2, Zap, Phone, AlertOctagon, Calendar, X, FileText
 } from 'lucide-react';
 import CustomerLocationMap from '../components/CustomerLocationMap';
 import Avatar from '../components/Avatar';
@@ -32,6 +32,14 @@ export default function WorkerBookingsView() {
   const [estimatedArrival, setEstimatedArrival] = useState('20-30 mins');
   const [submittingArrival, setSubmittingArrival] = useState(false);
   const [arrivalError, setArrivalError] = useState('');
+
+  // Emergency Quotation Modal State
+  const [quotationModalJob, setQuotationModalJob] = useState(null);
+  const [quotationLabor, setQuotationLabor] = useState('');
+  const [quotationMaterial, setQuotationMaterial] = useState('');
+  const [quotationNote, setQuotationNote] = useState('');
+  const [quotationSubmitting, setQuotationSubmitting] = useState(false);
+  const [quotationError, setQuotationError] = useState('');
 
   // Live countdown timer ticker
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -91,6 +99,8 @@ export default function WorkerBookingsView() {
     );
   };
 
+  const [openOffers, setOpenOffers] = useState([]);
+
   const fetchBookings = () => {
     if (!token) return;
     fetch('http://localhost:5000/api/jobs?asWorker=true', {
@@ -107,8 +117,28 @@ export default function WorkerBookingsView() {
       });
   };
 
+  const fetchOpenEmergencyOffers = () => {
+    if (!token) return;
+    fetch('http://localhost:5000/api/jobs/emergency/open', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setOpenOffers(Array.isArray(data) ? data : []);
+      })
+      .catch(err => console.error('Error fetching open emergency offers:', err));
+  };
+
   useEffect(() => {
     fetchBookings();
+    fetchOpenEmergencyOffers();
+
+    // Poll for emergency broadcast requests every 5 seconds
+    const interval = setInterval(() => {
+      fetchOpenEmergencyOffers();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [token]);
 
   const handleUpdateStatus = async (id, status, extraBody = {}) => {
@@ -145,16 +175,101 @@ export default function WorkerBookingsView() {
 
     setSubmittingArrival(true);
     setArrivalError('');
-    const res = await handleUpdateStatus(emergencyAcceptJob._id, 'EmergencyAcceptedPendingCustomer', {
-      estimatedArrivalTime: estimatedArrival.trim()
-    });
 
-    setSubmittingArrival(false);
-    if (res.success) {
-      setEmergencyAcceptJob(null);
-      alert('✅ Emergency offer accepted! Customer has been notified with your arrival ETA.');
+    if (emergencyAcceptJob.status === 'Open' || emergencyAcceptJob.isPublicOffer) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/jobs/${emergencyAcceptJob._id}/emergency-claim`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ estimatedArrivalTime: estimatedArrival.trim() })
+        });
+        const data = await res.json();
+        setSubmittingArrival(false);
+        if (res.ok) {
+          setEmergencyAcceptJob(null);
+          alert('✅ Emergency offer claimed successfully! The customer has been notified with your arrival ETA.');
+          fetchBookings();
+          fetchOpenEmergencyOffers();
+        } else {
+          setArrivalError(data.message || 'Failed to claim emergency offer.');
+          fetchOpenEmergencyOffers();
+        }
+      } catch (err) {
+        setSubmittingArrival(false);
+        setArrivalError('Network error: ' + err.message);
+      }
     } else {
-      setArrivalError(res.message || 'Failed to accept emergency offer.');
+      const res = await handleUpdateStatus(emergencyAcceptJob._id, 'EmergencyAcceptedPendingCustomer', {
+        estimatedArrivalTime: estimatedArrival.trim()
+      });
+
+      setSubmittingArrival(false);
+      if (res.success) {
+        setEmergencyAcceptJob(null);
+        alert('✅ Emergency offer accepted! Customer has been notified with your arrival ETA.');
+      } else {
+        setArrivalError(res.message || 'Failed to accept emergency offer.');
+      }
+    }
+  };
+
+  const handleOpenQuotationModal = (job) => {
+    setQuotationModalJob(job);
+    setQuotationLabor(job.laborCharge ? String(job.laborCharge) : '');
+    setQuotationMaterial(job.materialCost ? String(job.materialCost) : '');
+    setQuotationNote(job.workerNote || '');
+    setQuotationError('');
+  };
+
+  const handleSubmitQuotation = async (e) => {
+    e.preventDefault();
+    if (!quotationModalJob) return;
+
+    const parsedLabor = parseFloat(quotationLabor);
+    if (isNaN(parsedLabor) || parsedLabor <= 0) {
+      setQuotationError('Please enter a valid labor charge greater than 0.');
+      return;
+    }
+
+    const parsedMaterial = quotationMaterial ? parseFloat(quotationMaterial) : 0;
+    if (isNaN(parsedMaterial) || parsedMaterial < 0) {
+      setQuotationError('Material cost cannot be negative.');
+      return;
+    }
+
+    setQuotationSubmitting(true);
+    setQuotationError('');
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/jobs/${quotationModalJob._id}/quotation`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          laborCharge: parsedLabor,
+          materialCost: parsedMaterial,
+          note: quotationNote.trim()
+        })
+      });
+
+      const data = await res.json();
+      setQuotationSubmitting(false);
+
+      if (res.ok) {
+        setQuotationModalJob(null);
+        alert('✅ Emergency quotation submitted to customer successfully!');
+        fetchBookings();
+      } else {
+        setQuotationError(data.message || 'Failed to submit quotation.');
+      }
+    } catch (err) {
+      setQuotationSubmitting(false);
+      setQuotationError('Network error: ' + err.message);
     }
   };
 
@@ -190,8 +305,8 @@ export default function WorkerBookingsView() {
 
   const sortedBookings = [...bookings].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-  const emergencyCount = bookings.filter(b => b.isEmergency).length;
-  const activeEmergencyCount = bookings.filter(b => b.isEmergency && (b.status === 'Pending' || b.status === 'EmergencyAcceptedPendingCustomer')).length;
+  const emergencyCount = bookings.filter(b => b.isEmergency).length + openOffers.length;
+  const activeEmergencyCount = bookings.filter(b => b.isEmergency && (b.status === 'Pending' || b.status === 'EmergencyAcceptedPendingCustomer')).length + openOffers.length;
 
   const filteredBookings = sortedBookings.filter(b => {
     if (filterStatus === 'All') return true;
@@ -255,6 +370,97 @@ export default function WorkerBookingsView() {
           ))}
         </div>
       </div>
+
+      {/* Available Public Emergency Offers Section */}
+      {openOffers.length > 0 && (filterStatus === 'All' || filterStatus === 'Emergency') && (
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
+            <h2 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0, color: '#dc2626' }}>
+              Broadcast Emergency Offers ({openOffers.length})
+            </h2>
+            <span style={{ fontSize: '0.75rem', background: '#fef2f2', border: '1px solid #fca5a5', color: '#ef4444', padding: '2px 8px', borderRadius: '8px', fontWeight: '700' }}>
+              Fastest Response Required
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {openOffers.map(offer => {
+              const mins = Math.floor((offer.secondsRemaining || 0) / 60);
+              const secs = (offer.secondsRemaining || 0) % 60;
+
+              return (
+                <div 
+                  key={offer._id}
+                  className="glass-panel"
+                  style={{
+                    padding: '18px 22px',
+                    borderRadius: '16px',
+                    borderLeft: '6px solid #ef4444',
+                    background: '#fff5f5',
+                    boxShadow: '0 4px 18px rgba(239,68,68,0.12)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fee2e2', color: '#b91c1c', padding: '3px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '800', marginBottom: '6px' }}>
+                        🚨 {offer.serviceType} Emergency
+                      </div>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '800' }}>
+                        "{offer.description}"
+                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                        <span>📍 {offer.serviceArea}</span>
+                        <span>•</span>
+                        <strong style={{ color: '#059669' }}>🧭 ~{offer.distanceKm} km away</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text-primary)' }}>
+                        ₹{offer.totalAmount}
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: '#ef4444', fontWeight: '700' }}>
+                        (incl. ₹150 Emergency Surcharge)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderTop: '1px solid rgba(239,68,68,0.15)', paddingTop: '10px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={15} /> Time Remaining: {mins}m {String(secs).padStart(2, '0')}s
+                    </span>
+
+                    <button
+                      onClick={() => {
+                        setEmergencyAcceptJob({ ...offer, isPublicOffer: true });
+                        setEstimatedArrival('20-30 mins');
+                      }}
+                      className="btn-primary"
+                      style={{
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        padding: '8px 16px',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        borderRadius: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Zap size={14} /> Accept Offer & Enter ETA
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0', color: 'var(--accent-primary)' }}>
@@ -323,7 +529,7 @@ export default function WorkerBookingsView() {
                         </span>
                       ) : (
                         <span style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '8px', fontWeight: '800', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          🚨 EMERGENCY (+₹150) • {mins}m {String(secs).padStart(2, '0')}s
+                          🚨 EMERGENCY ({b.emergencySurchargePercent ? '+10% Surcharge' : '+₹150'}) {b.status === 'Open' || b.status === 'Pending' ? `• ${mins}m ${String(secs).padStart(2, '0')}s` : ''}
                         </span>
                       )
                     )}
@@ -365,8 +571,23 @@ export default function WorkerBookingsView() {
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Earnings / Fee:</span>
                     <div style={{ fontWeight: '800', color: 'var(--accent-primary)', marginTop: '2px', fontSize: '0.98rem' }}>
-                      ₹{b.totalAmount || 500}
-                      {b.isEmergency && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginLeft: '4px' }}>(incl. ₹150 Emergency)</span>}
+                      {b.isEmergency && b.emergencySurchargePercent ? (
+                        b.totalAmount ? (
+                          <>
+                            ₹{b.totalAmount}
+                            <span style={{ fontSize: '0.75rem', color: '#dc2626', marginLeft: '4px' }}>
+                              (Labor ₹{b.laborCharge} + 10% ₹{b.emergencyCharge}{b.materialCost > 0 ? ` + Mat. ₹${b.materialCost}` : ''})
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ color: '#b45309', fontSize: '0.85rem' }}>Quote after inspection (+10% Surcharge)</span>
+                        )
+                      ) : (
+                        <>
+                          ₹{b.totalAmount || b.serviceCharge || 500}
+                          {b.isEmergency && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginLeft: '4px' }}>(incl. ₹{b.emergencyCharge || 150} emergency fee)</span>}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -383,12 +604,83 @@ export default function WorkerBookingsView() {
                   </p>
                 )}
 
+                {/* Emergency Quotation Status Box */}
+                {b.isEmergency && b.status === 'Accepted' && (
+                  <div>
+                    {(!b.quotationStatus || b.quotationStatus === 'Pending') && (
+                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <strong style={{ color: '#b45309', display: 'block', fontSize: '0.9rem' }}>📋 Inspection & Quotation Pending</strong>
+                          <span style={{ fontSize: '0.82rem', color: '#92400e' }}>
+                            Inspect the site and submit labor + material quotation. Surcharge is 10% of labor charge.
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleOpenQuotationModal(b)}
+                          className="btn-primary"
+                          style={{ padding: '8px 16px', fontSize: '0.82rem', background: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <FileText size={14} /> Submit Quotation
+                        </button>
+                      </div>
+                    )}
+
+                    {b.quotationStatus === 'Submitted' && (
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '12px 16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <strong style={{ color: '#1d4ed8', display: 'block', fontSize: '0.9rem' }}>📋 Quotation Submitted • Awaiting Customer Approval</strong>
+                          <span style={{ fontSize: '0.82rem', color: '#1e40af' }}>
+                            Labor: ₹{b.laborCharge} + 10% Surcharge: ₹{b.emergencyCharge}{b.materialCost > 0 ? ` + Materials: ₹${b.materialCost}` : ''} = <strong>Total ₹{b.totalAmount}</strong>
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleOpenQuotationModal(b)}
+                          style={{ background: '#ffffff', border: '1px solid #93c5fd', color: '#1d4ed8', padding: '6px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Revise Quote
+                        </button>
+                      </div>
+                    )}
+
+                    {b.quotationStatus === 'Declined' && (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '12px 16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <strong style={{ color: '#b91c1c', display: 'block', fontSize: '0.9rem' }}>⚠️ Quotation Declined by Customer</strong>
+                          <span style={{ fontSize: '0.82rem', color: '#991b1b' }}>
+                            Customer requested a revised quotation. Please review and resubmit.
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleOpenQuotationModal(b)}
+                          className="btn-primary"
+                          style={{ padding: '8px 16px', fontSize: '0.82rem', background: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <FileText size={14} /> Revise & Resubmit
+                        </button>
+                      </div>
+                    )}
+
+                    {b.quotationStatus === 'Approved' && (
+                      <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '12px 16px', borderRadius: '12px' }}>
+                        <strong style={{ color: '#065f46', display: 'block', fontSize: '0.9rem' }}>✅ Quotation Approved (Locked)</strong>
+                        <span style={{ fontSize: '0.82rem', color: '#047857' }}>
+                          Labor: ₹{b.laborCharge} + 10% Surcharge: ₹{b.emergencyCharge}{b.materialCost > 0 ? ` + Materials: ₹${b.materialCost}` : ''} = <strong>Final Agreed Total: ₹{b.totalAmount}</strong>
+                        </span>
+                        <div style={{ fontSize: '0.78rem', color: '#059669', marginTop: '4px' }}>
+                          Work is authorized. Customer will confirm completion upon finishing.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Customer Location & Map */}
                 {expandedMapId === b._id && (
                   <CustomerLocationMap 
                     customerLocation={b.customerLocation}
                     serviceAddress={b.serviceAddress || b.location}
                     customerName={b.customerId?.name || 'Customer'}
+                    workerLocation={b.workerId?.location || b.workerId?.currentLocation}
                   />
                 )}
 
@@ -466,13 +758,22 @@ export default function WorkerBookingsView() {
                     )}
 
                     {b.status === 'Accepted' && (
-                      <button 
-                        onClick={() => handleUpdateStatus(b._id, 'Completed')}
-                        className="btn-primary"
-                        style={{ padding: '8px 20px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.82rem',
+                          fontWeight: '600',
+                          color: '#047857',
+                          background: '#ecfdf5',
+                          border: '1px solid #a7f3d0',
+                          padding: '7px 14px',
+                          borderRadius: '8px'
+                        }}
                       >
-                        <CheckCircle2 size={16} /> Mark Service Completed
-                      </button>
+                        <Clock size={15} /> Service in Progress • Customer Confirms Completion
+                      </span>
                     )}
                   </div>
                 </div>
@@ -536,6 +837,123 @@ export default function WorkerBookingsView() {
           </div>
         </div>
       )}
+      {/* MODAL: SUBMIT EMERGENCY QUOTATION */}
+      {quotationModalJob && (() => {
+        const previewLabor = parseFloat(quotationLabor) || 0;
+        const previewMaterial = parseFloat(quotationMaterial) || 0;
+        const previewSurcharge = Math.round(previewLabor * 0.10);
+        const previewTotal = previewLabor + previewSurcharge + previewMaterial;
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div className="glass-panel" style={{ background: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '24px', padding: '28px', position: 'relative' }}>
+              <button onClick={() => setQuotationModalJob(null)} style={{ position: 'absolute', right: '20px', top: '20px', background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', margin: '0 0 6px 0', color: '#dc2626' }}>
+                {quotationModalJob.quotationStatus === 'Declined' ? 'Revise Emergency Quotation' : 'Submit Emergency Quotation'}
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '16px', lineHeight: '1.4' }}>
+                Enter the agreed labor charge and any material costs for customer <strong>{quotationModalJob.customerId?.name}</strong>. The 10% emergency surcharge is automatically calculated.
+              </p>
+
+              {quotationError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '10px 12px', borderRadius: '10px', marginBottom: '14px', fontSize: '0.85rem' }}>
+                  ⚠️ {quotationError}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitQuotation} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                    Labor / Service Charge (₹): <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="any"
+                    value={quotationLabor}
+                    onChange={e => setQuotationLabor(e.target.value)}
+                    placeholder="e.g. 1000"
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                    Material Costs (₹, optional):
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={quotationMaterial}
+                    onChange={e => setQuotationMaterial(e.target.value)}
+                    placeholder="e.g. 500 (0 if none)"
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                {/* Real-time Authoritative Calculation Preview */}
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', fontSize: '0.88rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>Labor Charge:</span>
+                    <strong>₹{previewLabor}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#dc2626' }}>
+                    <span>Emergency Priority Surcharge (10%):</span>
+                    <strong>+₹{previewSurcharge}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>Material Costs:</span>
+                    <strong>+₹{previewMaterial}</strong>
+                  </div>
+                  <div style={{ height: '1px', background: '#cbd5e1', margin: '6px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: '800', color: '#15803d' }}>
+                    <span>Total Quoted Amount:</span>
+                    <span>₹{previewTotal}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                    Work / Parts Note (Optional):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={quotationNote}
+                    onChange={e => setQuotationNote(e.target.value)}
+                    placeholder="e.g. Replaced faulty copper elbow joint and pipe seals"
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '10px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setQuotationModalJob(null)}
+                    disabled={quotationSubmitting}
+                    style={{ background: 'var(--bg-tertiary)', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={quotationSubmitting}
+                    className="btn-primary"
+                    style={{ padding: '10px 22px', background: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {quotationSubmitting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                    {quotationSubmitting ? 'Submitting...' : 'Submit Quotation to Customer'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -7,8 +7,8 @@ import { MapPin, Navigation, ExternalLink, AlertCircle, Loader2 } from 'lucide-r
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-// Standard customer marker icon
-const customerIcon = L.icon({
+// Standard worker marker icon (normal pin showing worker's base or live position)
+const workerPinIcon = L.icon({
   iconUrl,
   shadowUrl,
   iconSize: [25, 41],
@@ -17,28 +17,28 @@ const customerIcon = L.icon({
   shadowSize: [41, 41]
 });
 
-// Distinct worker marker icon
-const workerIcon = L.divIcon({
-  className: 'worker-leaflet-marker',
+// Distinct requested work site marker icon (spanner/wrench badge where worker has to go)
+const workSiteIcon = L.divIcon({
+  className: 'worksite-leaflet-marker',
   html: `
     <div style="
       background: #2563eb;
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       border: 3px solid #ffffff;
-      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+      box-shadow: 0 4px 14px rgba(37,99,235,0.45);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #ffffff;
-      font-size: 15px;
+      font-size: 16px;
     ">
       🛠️
     </div>
   `,
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
   popupAnchor: [0, -18]
 });
 
@@ -86,11 +86,41 @@ function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
 export default function CustomerLocationMap({
   customerLocation,
   serviceAddress,
-  customerName = 'Customer'
+  customerName = 'Customer',
+  workerLocation
 }) {
-  const [workerPos, setWorkerPos] = useState(null); // [lat, lng]
-  const [locatingWorker, setLocatingWorker] = useState(true);
+  // Extract stored worker base/service location from props or localStorage
+  const getStoredWorkerLocation = () => {
+    if (workerLocation?.coordinates && Array.isArray(workerLocation.coordinates) && workerLocation.coordinates.length === 2) {
+      const lng = Number(workerLocation.coordinates[0]);
+      const lat = Number(workerLocation.coordinates[1]);
+      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem('userProfile')) || {};
+      const baseCoords = stored.location?.coordinates;
+      if (baseCoords && Array.isArray(baseCoords) && baseCoords.length === 2) {
+        const lng = Number(baseCoords[0]);
+        const lat = Number(baseCoords[1]);
+        if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+      }
+      const currCoords = stored.currentLocation?.coordinates;
+      if (currCoords && Array.isArray(currCoords) && currCoords.length === 2) {
+        const lng = Number(currCoords[0]);
+        const lat = Number(currCoords[1]);
+        if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+      }
+    } catch (e) {
+      console.error('Error reading worker profile location:', e);
+    }
+    return null;
+  };
+
+  const initialStoredPos = getStoredWorkerLocation();
+  const [workerPos, setWorkerPos] = useState(initialStoredPos); // [lat, lng]
+  const [locatingWorker, setLocatingWorker] = useState(!initialStoredPos);
   const [workerError, setWorkerError] = useState(null);
+  const [originType, setOriginType] = useState(initialStoredPos ? 'base' : 'gps'); // 'base' | 'gps'
 
   // Extract customer coordinates from GeoJSON: [longitude, latitude]
   let customerPos = null; // Leaflet uses [latitude, longitude]
@@ -124,35 +154,49 @@ export default function CustomerLocationMap({
     }
   }
 
-  // Request worker browser geolocation
-  useEffect(() => {
+  // Fetch live browser GPS on demand
+  const handleFetchLiveGps = () => {
     if (!navigator.geolocation) {
-      setWorkerError('Browser does not support geolocation.');
-      setLocatingWorker(false);
+      alert('Browser does not support geolocation.');
       return;
     }
-
+    setLocatingWorker(true);
+    setWorkerError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         setWorkerPos([latitude, longitude]);
+        setOriginType('gps');
         setLocatingWorker(false);
-        setWorkerError(null);
       },
       (error) => {
-        let msg = 'Worker position unavailable.';
-        if (error.code === 1) {
-          msg = 'Worker location permission denied in browser.';
-        } else if (error.code === 2) {
-          msg = 'Worker position unavailable.';
-        } else if (error.code === 3) {
-          msg = 'Worker location request timed out.';
-        }
+        let msg = 'Worker live position unavailable.';
+        if (error.code === 1) msg = 'Location permission denied by browser.';
+        else if (error.code === 2) msg = 'GPS position unavailable.';
+        else if (error.code === 3) msg = 'Location request timed out.';
         setWorkerError(msg);
         setLocatingWorker(false);
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
+  };
+
+  const handleUseBaseLocation = () => {
+    const base = getStoredWorkerLocation();
+    if (base) {
+      setWorkerPos(base);
+      setOriginType('base');
+      setWorkerError(null);
+    } else {
+      alert('No base service location saved in profile yet. Please set your location in Profile.');
+    }
+  };
+
+  // If no stored profile location, query browser GPS as fallback
+  useEffect(() => {
+    if (!initialStoredPos) {
+      handleFetchLiveGps();
+    }
   }, []);
 
   // Compute straight-line distance if both coordinates are available
@@ -247,7 +291,7 @@ export default function CustomerLocationMap({
           gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <MapPin size={16} color="var(--accent-primary)" />
           {distanceKm !== null ? (
             <span
@@ -271,6 +315,46 @@ export default function CustomerLocationMap({
               Approx. distance: (Worker location unavailable)
             </span>
           )}
+
+          {/* Origin selector toggle */}
+          <div style={{ display: 'inline-flex', background: '#e2e8f0', borderRadius: '8px', padding: '2px', gap: '2px' }}>
+            <button
+              type="button"
+              onClick={handleUseBaseLocation}
+              style={{
+                background: originType === 'base' ? '#ffffff' : 'transparent',
+                color: originType === 'base' ? 'var(--accent-primary)' : '#64748b',
+                border: 'none',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                fontWeight: originType === 'base' ? '800' : '600',
+                cursor: 'pointer',
+                boxShadow: originType === 'base' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+              }}
+              title="Use configured base service location from profile"
+            >
+              📍 Base Location
+            </button>
+            <button
+              type="button"
+              onClick={handleFetchLiveGps}
+              style={{
+                background: originType === 'gps' ? '#ffffff' : 'transparent',
+                color: originType === 'gps' ? '#059669' : '#64748b',
+                border: 'none',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                fontWeight: originType === 'gps' ? '800' : '600',
+                cursor: 'pointer',
+                boxShadow: originType === 'gps' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+              }}
+              title="Detect live browser GPS"
+            >
+              🧭 Live GPS
+            </button>
+          </div>
         </div>
 
         {/* Optional "Open in Google Maps" Button */}
@@ -350,12 +434,12 @@ export default function CustomerLocationMap({
           {/* Auto bounds fitter */}
           <FitBounds workerPos={workerPos} customerPos={customerPos} />
 
-          {/* Customer Marker */}
-          <Marker position={customerPos} icon={customerIcon}>
+          {/* Requested Work Destination Marker (Spanner Icon - Where worker has to go) */}
+          <Marker position={customerPos} icon={workSiteIcon}>
             <Popup>
               <div style={{ fontSize: '0.85rem', padding: '2px' }}>
-                <strong style={{ display: 'block', marginBottom: '2px', color: '#1e293b' }}>
-                  Customer Location
+                <strong style={{ display: 'block', marginBottom: '2px', color: '#2563eb' }}>
+                  🛠️ Requested Work Site
                 </strong>
                 <span style={{ color: '#475569', fontSize: '0.8rem' }}>
                   {customerName}: {serviceAddress || 'Customer Address'}
@@ -364,16 +448,16 @@ export default function CustomerLocationMap({
             </Popup>
           </Marker>
 
-          {/* Worker Marker (if available) */}
+          {/* Worker Location Marker (Normal Pin Icon - Shows worker's current/base location) */}
           {workerPos && (
-            <Marker position={workerPos} icon={workerIcon}>
+            <Marker position={workerPos} icon={workerPinIcon}>
               <Popup>
                 <div style={{ fontSize: '0.85rem', padding: '2px' }}>
-                  <strong style={{ display: 'block', color: '#2563eb' }}>
-                    Your Location
+                  <strong style={{ display: 'block', color: '#1e293b' }}>
+                    📍 {originType === 'base' ? 'Your Base Service Location' : 'Your Live GPS Location'}
                   </strong>
                   <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                    Current worker device position
+                    [{workerPos[0].toFixed(4)}, {workerPos[1].toFixed(4)}]
                   </span>
                 </div>
               </Popup>
@@ -383,13 +467,17 @@ export default function CustomerLocationMap({
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-        <span>📍 <strong>Destination:</strong> {serviceAddress || 'Customer Address'}</span>
+        <span>🛠️ <strong>Work Destination:</strong> {serviceAddress || 'Customer Address'}</span>
         {customerPos && (
           <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.78rem' }}>
             GPS: {customerPos[0].toFixed(4)}° N, {customerPos[1].toFixed(4)}° E
           </span>
         )}
-        {workerPos && <span>🛠️ <strong>Origin:</strong> Your current location</span>}
+        {workerPos && (
+          <span style={{ color: originType === 'base' ? 'var(--accent-primary)' : '#059669', fontWeight: '600' }}>
+            📍 <strong>Worker Origin:</strong> {originType === 'base' ? 'Service Base' : 'Live GPS'} ({workerPos[0].toFixed(4)}° N, {workerPos[1].toFixed(4)}° E)
+          </span>
+        )}
       </div>
     </div>
   );

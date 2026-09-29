@@ -132,6 +132,12 @@ const UserSchema = new Schema({
     min: 0
   },
 
+  minimumCharge: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+
   isAvailable: {
     type: Boolean,
     default: true
@@ -140,6 +146,11 @@ const UserSchema = new Schema({
   unavailableUntil: {
     type: Date,
     default: null
+  },
+
+  emergencyOptIn: {
+    type: Boolean,
+    default: true
   },
 
   rating: {

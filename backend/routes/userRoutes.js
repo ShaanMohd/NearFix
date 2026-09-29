@@ -159,7 +159,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const { 
       name, phone, title, bio, skills, experienceYears, serviceRadius, 
-      serviceMode, pricingType, startingPrice, hourlyRate, businessName, 
+      serviceMode, pricingType, startingPrice, hourlyRate, minimumCharge, businessName, 
       address, location, currentLocation, avatar, isAvailable, unavailableUntil,
       availabilityHours, documents 
     } = req.body;
@@ -218,15 +218,19 @@ router.put('/profile', auth, async (req, res) => {
       profileFields.skills = parsedSkills;
     }
 
-    // 6. Experience Years (number >= 0)
+    // 6. Experience Years (optional - number >= 0, or 0/empty to hide)
     if (experienceYears !== undefined) {
-      const exp = Number(experienceYears);
-      if (isNaN(exp) || exp < 0 || exp > 70) {
-        return res.status(400).json({ 
-          message: 'Years of Experience must be a positive number (0 to 70).' 
-        });
+      if (experienceYears === '' || experienceYears === null || experienceYears === 0 || experienceYears === '0') {
+        profileFields.experienceYears = 0;
+      } else {
+        const exp = Number(experienceYears);
+        if (isNaN(exp) || exp < 0 || exp > 70) {
+          return res.status(400).json({ 
+            message: 'Years of Experience must be a positive number (0 to 70).' 
+          });
+        }
+        profileFields.experienceYears = exp;
       }
-      profileFields.experienceYears = exp;
     }
 
     // 7. Service Radius (1-100 km)
@@ -262,16 +266,24 @@ router.put('/profile', auth, async (req, res) => {
       profileFields.pricingType = pricingType;
     }
 
-    // 10. Starting Price / Hourly Rate (number >= 0)
-    if (startingPrice !== undefined || hourlyRate !== undefined) {
-      const priceVal = Number(startingPrice !== undefined ? startingPrice : hourlyRate);
-      if (isNaN(priceVal) || priceVal < 0) {
-        return res.status(400).json({ 
-          message: 'Starting Price must be a valid non-negative number.' 
-        });
+    // 10. Minimum Charge / Starting Price (optional - number >= 0, or 0/empty to hide)
+    if (minimumCharge !== undefined || startingPrice !== undefined || hourlyRate !== undefined) {
+      const rawPrice = minimumCharge !== undefined ? minimumCharge : (startingPrice !== undefined ? startingPrice : hourlyRate);
+      if (rawPrice === '' || rawPrice === null || rawPrice === 0 || rawPrice === '0') {
+        profileFields.minimumCharge = 0;
+        profileFields.startingPrice = 0;
+        profileFields.hourlyRate = 0;
+      } else {
+        const priceVal = Number(rawPrice);
+        if (isNaN(priceVal) || priceVal < 0) {
+          return res.status(400).json({ 
+            message: 'Minimum Charge must be a valid non-negative number.' 
+          });
+        }
+        profileFields.minimumCharge = priceVal;
+        profileFields.startingPrice = priceVal;
+        profileFields.hourlyRate = priceVal;
       }
-      profileFields.startingPrice = priceVal;
-      profileFields.hourlyRate = priceVal; // Keep backward-compatible hourlyRate in sync
     }
 
     // 11. Business Name (max 100 chars)
@@ -478,6 +490,38 @@ const avatarHandler = async (req, res) => {
 
 router.put('/me/avatar', auth, handleAvatarUpload, avatarHandler);
 router.post('/me/avatar', auth, handleAvatarUpload, avatarHandler);
+
+// @route   DELETE /api/users/me/avatar
+// @desc    Remove profile picture
+router.delete('/me/avatar', auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { avatar: '' } },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User account not found.' });
+    }
+
+    res.json({
+      message: 'Profile picture removed successfully.',
+      avatar: '',
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: ''
+      }
+    });
+  } catch (err) {
+    console.error('Error removing avatar:', err);
+    res.status(500).json({ message: 'Server Error while removing profile picture.' });
+  }
+});
 
 // @route   PUT /api/users/me/password
 // @desc    Update password for authenticated user (customer, worker, admin)

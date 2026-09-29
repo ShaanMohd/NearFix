@@ -23,6 +23,9 @@ const NotificationSchema = new mongoose.Schema({
       'SERVICE_STARTED',
       'SERVICE_COMPLETED',
       'BOOKING_CANCELLED',
+      'QUOTATION_SUBMITTED',
+      'QUOTATION_APPROVED',
+      'QUOTATION_DECLINED',
       'SYSTEM'
     ],
     required: true

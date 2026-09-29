@@ -14,6 +14,7 @@ import {
   Briefcase, 
   Calendar 
 } from 'lucide-react';
+import Avatar from '../../components/Avatar';
 
 export default function WorkerVerification() {
   const navigate = useNavigate();
@@ -215,10 +216,11 @@ export default function WorkerVerification() {
             >
               {/* Worker Info Block */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flex: '1 1 350px' }}>
-                <img 
-                  src={worker.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150'} 
-                  alt={worker.name} 
-                  style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-glass)', flexShrink: 0 }}
+                <Avatar 
+                  src={worker.avatar} 
+                  name={worker.name} 
+                  size={60}
+                  style={{ border: '2px solid var(--border-glass)' }}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -239,7 +241,7 @@ export default function WorkerVerification() {
                       <Briefcase size={14} /> {worker.skills?.[0] || worker.title || 'General Worker'}
                     </span>
                     <span>•</span>
-                    <span>{worker.experienceYears ? `${worker.experienceYears} Years Exp` : '3 Years Exp'}</span>
+                    <span>{Number(worker.experienceYears) > 0 ? `${worker.experienceYears} Years Exp` : 'Exp Not set'}</span>
                     <span>•</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <MapPin size={14} /> {worker.address || (typeof worker.location === 'string' ? worker.location : 'Kozhikode, Kerala')}
